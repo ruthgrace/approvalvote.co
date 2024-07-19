@@ -36,7 +36,6 @@ const MakePoll: React.FC = () => {
         </div>
         <button type="submit">Create Poll</button>
       </form>
-      <Link to="/">Go to Home</Link>
     </div>
   );
 };
