@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 
 const MakePoll: React.FC = () => {
   const [candidates, setCandidates] = useState('');
