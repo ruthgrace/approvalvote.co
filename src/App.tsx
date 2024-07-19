@@ -1,12 +1,18 @@
 import './App.css'
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Home from './pages/Home';
+import MakePoll from './pages/MakePoll';
 
-export default function App() {
+const App: React.FC = () => {
   return (
-    <main>
-      <h1>Optimize group decisions.</h1>
-      You can't please everyone, but with approval voting you can get close!
-      <button type="button">Make a poll</button>
+    <Router>
+      <Routes>
+        <Route exact path="/" element={<Home />} />
+        <Route path="/makepoll" element={<MakePoll />} />
+      </Routes>
+    </Router>
+  );
+};
 
-    </main>
-  )
-}
+export default App;
