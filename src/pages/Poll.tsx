@@ -23,7 +23,7 @@ const Poll: React.FC = () => {
   return (
     <main>
       <h1>Vote!</h1>
-      Select all candidates that you approve of:
+      Select all options that you approve of:
       <div>
         {candidateList.map((candidate, index) => (
           <div key={index}>
@@ -38,7 +38,7 @@ const Poll: React.FC = () => {
             </label>
           </div>
         ))}
-        <p>There will be {seats} candidates elected.</p>
+        <p>There will be {seats} options selected after the poll closes.</p>
 
         <a href="/results">
           <button type="button">Submit Vote</button>

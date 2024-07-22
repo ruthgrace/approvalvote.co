@@ -24,7 +24,7 @@ const MakePoll: React.FC = () => {
       <h1>Make a Poll</h1>
       <form onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="candidates">Candidates:</label>
+          <label htmlFor="candidates">Please enter all the options you'd like people to vote on here. One per line:</label>
           <textarea
             id="candidates"
             value={candidates}
@@ -32,7 +32,7 @@ const MakePoll: React.FC = () => {
             cols={50} />
         </div>
         <div>
-          <label htmlFor="seats">Number of seats:</label>
+          <label htmlFor="seats">Number of options that will be selected:</label>
           <input
             type="number"
             id="seats"
