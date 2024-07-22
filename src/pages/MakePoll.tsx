@@ -15,7 +15,7 @@ const MakePoll: React.FC = () => {
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    // Navigate to VotingPage with poll data
+    // Navigate to Voting Page with poll data
     navigate('/vote');
   };
 

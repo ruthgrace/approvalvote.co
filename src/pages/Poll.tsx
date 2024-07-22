@@ -1,4 +1,5 @@
 import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PollDataContext } from '../contexts/PollDataContext';
 
 const Poll: React.FC = () => {
@@ -8,6 +9,12 @@ const Poll: React.FC = () => {
     throw new Error('Poll must be used within a PollDataProvider');
   }
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const navigate = useNavigate();
+
+  // Handle button click
+  const handleSubmit = () => {
+    navigate('/results'); // Navigate to the results page
+  };
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -40,9 +47,7 @@ const Poll: React.FC = () => {
         ))}
         <p>There will be {seats} options selected after the poll closes.</p>
 
-        <a href="/results">
-          <button type="button">Submit Vote</button>
-        </a>
+        <button type="button" onClick={handleSubmit}>Submit Vote</button>
       </div>
     </main >
   );
