@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import { PollDataContext } from '../contexts/PollDataContext';
 
 const MakePoll: React.FC = () => {
-  const [candidates, setCandidates] = useState('');
-  const [seats, setSeats] = useState('');
+  const context = useContext(PollDataContext);
+
+  if (!context) {
+    throw new Error('MakePoll must be used within a PollDataProvider');
+  }
+
+  const { candidates, seats, setCandidates, setSeats } = context;
+  const navigate = useNavigate();
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    console.log('Candidates:', candidates);
-    console.log('Number of seats:', seats);
-    // You can add further processing here, like sending the data to a server
+    // Navigate to VotingPage with poll data
+    navigate('/vote');
   };
 
   return (
@@ -21,8 +29,7 @@ const MakePoll: React.FC = () => {
             id="candidates"
             value={candidates}
             onChange={(e) => setCandidates(e.target.value)}
-            cols="50">
-          </textarea>
+            cols={50} />
         </div>
         <div>
           <label htmlFor="seats">Number of seats:</label>
@@ -30,7 +37,7 @@ const MakePoll: React.FC = () => {
             type="number"
             id="seats"
             value={seats}
-            onChange={(e) => setSeats(e.target.value)}
+            onChange={(e) => setSeats(e.target.valueAsNumber)}
           />
         </div>
         <button type="submit">Create Poll</button>
