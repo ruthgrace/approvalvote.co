@@ -15,13 +15,8 @@
   {candidateList.map((candidate, index) => (
   <div key={index}>
     <label>
-    <input
-        type="checkbox"
-        value={candidate}
-        checked={selectedOptions.includes(candidate)}
-        onChange={handleChange}
-    />
-    {candidate}
+      <input type="checkbox" value={candidate} checked={selectedOptions.includes(candidate)} onChange={handleChange} />
+      {candidate}
     </label>
   </div>
   ))}

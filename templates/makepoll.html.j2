@@ -9,28 +9,19 @@
 <body>
 
   <h1>Make a Poll</h1>
-  <form onSubmit={handleSubmit}>
-  <div>
-    <label htmlFor="candidates">Please enter all the options you'd like people to vote on here. One per line:</label>
+
+  <form hx-post="/pollsubmit" hx-target="#response" hx-swap="innerHTML">
+    <label for="candidates">Please enter all the options you'd like people to vote on here. One per line:</label>
     <br />
-    <textarea
-    id="candidates"
-    value={candidates}
-    onChange={(e) => setCandidates(e.target.value)}
-    cols={50} />
-  </div>
-  <div>
-    <label htmlFor="seats">Number of options that will be selected:</label>
+    <textarea id="candidates" name="candidates" cols="50"></textarea>
     <br />
-    <input
-    type="number"
-    id="seats"
-    value={seats}
-    onChange={(e) => setSeats(e.target.valueAsNumber)}
-    />
-  </div>
-  <button type="submit">Create Poll</button>
+    <label for="seats">Number of options that will be selected:</label>
+    <br />
+    <input type="number" id="seats" name="seats" value=0 />
+    <br />
+    <button type="submit">Create Poll</button>
   </form>
+  <div id="response"></div>
 </body>
 
 </html>
