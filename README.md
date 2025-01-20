@@ -19,4 +19,4 @@ flask --app website run --host=0.0.0.0
 ```
 
 ## to do
-* fix form fields in poll page
+* figure out backend
