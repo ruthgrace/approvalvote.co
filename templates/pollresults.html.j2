@@ -1,0 +1,21 @@
+<main>
+    <h1>Poll results!</h1>
+    <p>Winners: {winners.join(', ')}</p>
+    <hr />
+    <p>Did you have a different preferred result?</p>
+    <p>You can see how many more votes the winners got than your preferred result. What was your preferred result?</p>
+    {candidateList.map((candidate, index) => (
+    <div key={index}>
+        <label>
+        <input
+            type="checkbox"
+            value={candidate}
+            checked={selectedOptions.includes(candidate)}
+            onChange={handleChange}
+        />
+        {candidate}
+        </label>
+    </div>
+    ))}
+    <p>{voteDifferenceString}</p>
+</main >

@@ -1,0 +1,22 @@
+<main>
+    <h1>Vote!</h1>
+    Select all options that you approve of:
+    <div>
+    {candidateList.map((candidate, index) => (
+        <div key={index}>
+        <label>
+            <input
+            type="checkbox"
+            value={candidate}
+            checked={selectedOptions.includes(candidate)}
+            onChange={handleChange}
+            />
+            {candidate}
+        </label>
+        </div>
+    ))}
+    <p>There will be {seats} options selected after the poll closes.</p>
+
+    <button type="button" onClick={handleSubmit}>Submit Vote</button>
+    </div>
+</main >
