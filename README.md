@@ -19,4 +19,6 @@ flask --app website run --host=0.0.0.0
 ```
 
 ## to do
-* figure out backend
+* make voting page connected to supabase - url should have poll id
+** make sure users table has verified status for email
+* ask proper questions in make poll to fill out table fields
