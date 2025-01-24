@@ -11,13 +11,36 @@
   <h1>Make a Poll</h1>
 
   <form hx-post="/pollsubmit" hx-target="#response" hx-swap="innerHTML">
+    <label for="email">What is your email address?</label>
+    <br />
+    <input type="text" id="email" name="email" required />
+    <br />
+    <br />
+    <label for="title">What is the title of your poll?</label>
+    <br />
+    <input type="text" id="title" name="title" required />
+    <br />
+    <br />
+    <label for="description">Optional: What is the description of your poll?</label>
+    <br />
+    <textarea id="description" name="description" cols="50"></textarea>
+    <br />
+    <br />
+    <label for="cover_url">Optional: URL for a cover photo (you can upload a file to imgur and put the link
+      here)</label>
+    <br />
+    <input type="text" id="cover_url" name="cover_url" />
+    <br />
+    <br />
     <label for="candidates">Please enter all the options you'd like people to vote on here. One per line:</label>
     <br />
     <textarea id="candidates" name="candidates" cols="50"></textarea>
     <br />
+    <br />
     <label for="seats">Number of options that will be selected:</label>
     <br />
-    <input type="number" id="seats" name="seats" value=0 />
+    <input type="number" id="seats" name="seats" value=0 required />
+    <br />
     <br />
     <button type="submit">Create Poll</button>
   </form>

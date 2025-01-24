@@ -21,6 +21,7 @@ flask --app website run --host=0.0.0.0
 ## to do
 * do poll administrator logic - admin must have verified email status
 * you must also verify your email to be able to edit your vote
-* ask proper questions in make poll to fill out table fields
 * user sessions so people dont' have to verify each time. bonus link to google account
 * voting results page
+* feature for whether or not a poll requires email verification from voters
+* feature for opening and closing polls
