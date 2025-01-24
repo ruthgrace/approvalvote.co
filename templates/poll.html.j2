@@ -7,21 +7,28 @@
 </head>
 
 <body>
-  <h1>Vote!</h1>
-  Select all options that you approve of:
   <div>
-    {candidateList.map((candidate, index) => (
-    <div key={index}>
+    <h1>Vote!</h1>
+    <form hx-post="/votesubmit" hx-target="#response" hx-swap="innerHTML">
+      <input type="hidden" name="poll_id" value="{{ poll_id }}" />
       <label>
-        <input type="checkbox" value={candidate} checked={selectedOptions.includes(candidate)}
-          onChange={handleChange} />
-        {candidate}
+        Your email (required to edit your vote):
+        <input type="text" name="user_email" />
       </label>
-    </div>
-    ))}
-    <p>There will be {seats} options selected after the poll closes.</p>
-
-    <button type="button" onClick={handleSubmit}>Submit Vote</button>
+      <br /><br />
+      Select all options that you approve of:
+      <br />
+      {% for id, candidate in candidates %}
+      <label>
+        <input type="checkbox" name="poll_option" value="{{id}}" /> {{candidate}}
+      </label>
+      <br />
+      {% endfor %}
+      <br />
+      <button type="submit">Submit Vote</button>
+    </form>
+    <div id="response"></div>
+    <p>There will be {{seats}} options selected after the poll closes.</p>
   </div>
 </body>
 
