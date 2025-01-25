@@ -83,8 +83,8 @@ def new_vote(form_data=None):
             update_form_data(poll_data, supabase)
             return render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_VOTE)
         user_id = get_user_id(poll_data[EMAIL], supabase)
-        # if user does not exist, create it
-        response = supabase.table("PollOptions").select("option").eq("poll", poll_data[ID]).execute()
+        # delete any existing votes user already has on this poll
+        response = supabase.table("Votes").delete().eq("poll", poll_data[ID]).eq("user", user_id).execute()
         option_names = []
         for option in poll_data[SELECTED]:
             (option_id, option_name) = option.split("|", maxsplit=1)
