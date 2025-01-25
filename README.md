@@ -15,11 +15,11 @@ pip install -r requirements.txt
 ## run in development
 
 ```
-flask --app website run --host=0.0.0.0
+flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* do poll administrator logic - admin must have verified email status
+* do poll administrator logic - admin must have verified email status. Let them make the poll but don't let the poll be real (inserted into database) until the user is registered?
 * you must also verify your email to be able to edit your vote
 * user sessions so people dont' have to verify each time. bonus link to google account
 * voting results page

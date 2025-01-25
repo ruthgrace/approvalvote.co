@@ -1,0 +1,17 @@
+<form hx-post="/new_user" hx-target="#new_user_response" hx-swap="innerHTML">
+  <input type="hidden" name="email" value="{{ email }}" />
+  <input type="hidden" name="origin_function" value="{{ origin_function }}" />
+  <p>Based on your email address, you do not have an account with us. Please register:</p>
+  <label for="full_name">What is your full name?</label>
+  <br />
+  <input type=text id="full_name" name="full_name" required />
+  <br />
+  <br />
+  <label for="preferred_name">What is your preferred name if different from your first name?</label>
+  <br />
+  <input type=text id="preferred_name" name="preferred_name" />
+  <br />
+  <br />
+  <button type="submit">Send verification code to email</button>
+</form>
+<div id="new_user_response"></div>
