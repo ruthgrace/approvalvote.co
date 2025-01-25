@@ -20,15 +20,15 @@
       <br />
       {% for id, candidate in candidates %}
       <label>
-        <input type="checkbox" name="poll_option" value="{{id}}" /> {{candidate}}
+        <input type="checkbox" name="poll_option" value="{{id}}|{{candidate}}" /> {{candidate}}
       </label>
       <br />
       {% endfor %}
       <br />
       <button type="submit">Submit Vote</button>
     </form>
-    <div id="response"></div>
     <p>There will be {{seats}} options selected after the poll closes.</p>
+    <div id="response"></div>
   </div>
 </body>
 
