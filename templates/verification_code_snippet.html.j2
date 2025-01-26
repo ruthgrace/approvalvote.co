@@ -1,6 +1,7 @@
 <form hx-post="/verification" hx-target="#verification_response" hx-swap="innerHTML">
   <input type="hidden" name="origin_function" value="{{ origin_function }}" />
   <input type="hidden" name="user_id" value="{{ user_id }}" />
+  <p>A verification code has been sent to your email. Please enter it below:</p>
   <input type=text id="code" name="code" required />
   <br />
   <br />

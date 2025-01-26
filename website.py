@@ -1,11 +1,11 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, session
 from supabase import create_client, Client
 
 import constants
 import traceback
 
 app = Flask(__name__)
-
+app.secret_key = constants.FLASK_SECRET
 
 EMAIL = "email"
 TITLE = "title"
@@ -83,6 +83,9 @@ def new_vote(form_data=None):
             update_form_data(poll_data, supabase)
             return render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_VOTE)
         user_id = get_user_id(poll_data[EMAIL], supabase)
+        if EMAIL not in session:
+            update_form_data(poll_data, supabase)
+            return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_VOTE)
         # delete any existing votes user already has on this poll
         response = supabase.table("Votes").delete().eq("poll", poll_data[ID]).eq("user", user_id).execute()
         option_names = []
@@ -120,7 +123,7 @@ def new_user():
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
         if preferred_name == "":
-            preferred_name = full_name.trim().split()[0]
+            preferred_name = full_name.strip().split()[0]
         response = (
             supabase.table("Users")
             .insert({"email": email, "full_name": full_name, "preferred_name": preferred_name})
@@ -146,13 +149,14 @@ def user_verification():
         email = response.data[0]["email"]
         response = supabase.table("FormData").select("form_data").eq("email", email).execute()
         form_data = response.data[0]["form_data"]
+        session[EMAIL] = email
     except Exception:
         print(traceback.format_exc())
     if origin_function == NEW_VOTE:
-        print("trying to run new vote")
+        print("trying to run new vote with form_data {form_data}")
         return new_vote(form_data=form_data)
     else: # new_poll
-        print(f"trying to run new poll with function eval {origin_function}(user_id='{user_id}')")
+        print(f"trying to run new poll with form_data {form_data}")
         return new_poll(form_data=form_data)
 
 @app.route("/pollsubmit", methods=["POST"])
@@ -175,6 +179,9 @@ def new_poll(form_data=None):
             return render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_POLL)
         print("getting user id")
         user_id = get_user_id(poll_data[EMAIL], supabase)
+        if EMAIL not in session:
+            update_form_data(poll_data, supabase)
+            return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL)
         response = (
             supabase.table("Polls")
             .insert({"title": poll_data[TITLE], "description": poll_data[DESCRIPTION], "cover_photo": poll_data[COVER_URL], "seats": poll_data[SEATS]})
