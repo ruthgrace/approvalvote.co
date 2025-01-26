@@ -4,6 +4,9 @@ from supabase import create_client, Client
 import constants
 import traceback
 import random
+import smtplib
+import ssl
+from email.message import EmailMessage
 
 app = Flask(__name__)
 app.secret_key = constants.FLASK_SECRET
@@ -57,6 +60,42 @@ def update_form_data(poll_data, supabase):
 def random_code():
     return "".join([random.choice(DIGITS) for _ in range(VERIFICATION_CODE_LENGTH)])
 
+def send_verification_email(recipient_email, verification_code):
+    # Create the email content
+    message = EmailMessage()
+    message["Subject"] = "ApprovalVote.Co Verification Code"
+    message["From"] = constants.NOREPLY_EMAIL
+    message["To"] = recipient_email
+    
+    # Create a simple email body; you could also use HTML here
+    message.set_content(f"""
+    Hello,
+
+    Your verification code for ApprovalVote.Co is: {verification_code}
+
+    If you didn't request this code, please ignore this email.
+    """.strip())
+
+    smtp_server = "mail.privateemail.com"
+    port = 587  # 587 is the standard port for STARTTLS
+
+    # Create a secure SSL context
+    context = ssl.create_default_context()
+
+    try:
+        with smtplib.SMTP(smtp_server, port) as server:
+            # Identify yourself to the server (some servers may require this)
+            server.ehlo()
+            # Secure the connection
+            server.starttls(context=context)
+            server.ehlo()
+            # Log in to your email account
+            server.login(constants.NOREPLY_EMAIL, constants.NOREPLY_PASSWORD)
+            # Send the message
+            server.send_message(message)
+        print(f"Verification email sent to {recipient_email}")
+    except Exception as e:
+        print(f"Error sending email: {e}")
 
 @app.route("/vote/<int:poll_id>")
 def poll_page(poll_id):
@@ -141,8 +180,9 @@ def new_user():
         print(f"new user response {response}")
         user_id = response.data[0]['id']
         print(f"user id is {user_id}")
-        session[VERIFICATION_CODE] = random_code()
-        # TODO - send verification code
+        code = random_code()
+        session[VERIFICATION_CODE] = code
+        send_verification_email(email, code)
         return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function)
     except Exception:
         print(traceback.format_exc())
