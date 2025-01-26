@@ -3,6 +3,7 @@ from supabase import create_client, Client
 
 import constants
 import traceback
+import random
 
 app = Flask(__name__)
 app.secret_key = constants.FLASK_SECRET
@@ -19,6 +20,10 @@ NEW_VOTE = "new_vote"
 SELECTED = "selected"
 ID = "id"
 EMAIL = "email"
+
+DIGITS = "0123456789"
+VERIFICATION_CODE_LENGTH = 4
+VERIFICATION_CODE = "verification_code"
 
 @app.route("/")
 def home_page():
@@ -48,6 +53,10 @@ def update_form_data(poll_data, supabase):
         .insert({"email": poll_data[EMAIL], "form_data": poll_data})
         .execute()
     )
+
+def random_code():
+    return "".join([random.choice(DIGITS) for _ in range(VERIFICATION_CODE_LENGTH)])
+
 
 @app.route("/vote/<int:poll_id>")
 def poll_page(poll_id):
@@ -132,6 +141,7 @@ def new_user():
         print(f"new user response {response}")
         user_id = response.data[0]['id']
         print(f"user id is {user_id}")
+        session[VERIFICATION_CODE] = random_code()
         # TODO - send verification code
         return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function)
     except Exception:
@@ -139,7 +149,9 @@ def new_user():
 
 @app.route("/verification", methods=["POST"])
 def user_verification():
-    # check the verification code
+    code = request.form.get("code")
+    if session[VERIFICATION_CODE] != code:
+        return "Incorrect code. Please try again."
     origin_function = request.form.get("origin_function")
     user_id = request.form.get("user_id")
     # get previous form data from the original task the user was trying to complete
