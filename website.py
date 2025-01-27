@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, session
 from supabase import create_client, Client
 
 import constants
+import itertools
 import traceback
 import random
 import smtplib
@@ -62,6 +63,7 @@ def random_code():
 
 def send_verification_email(recipient_email):
     code = random_code()
+    print(f"verification code is {code}")
     session[VERIFICATION_CODE] = code
     # Create the email content
     message = EmailMessage()
@@ -161,9 +163,69 @@ def new_vote(form_data=None):
     except Exception:
         print(traceback.format_exc())
 
-@app.route("/results")
-def poll_results_page():
-    return render_template('pollresults.html.j2')
+@app.route("/results/<int:poll_id>")
+def poll_results_page(poll_id):
+    try:
+        supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
+        response = supabase.table("Polls").select("seats").eq("id", poll_id).execute()
+        print(f"response is {response}")
+        seats = response.data[0]["seats"]
+        # get candidates
+        candidates = {}
+        response = supabase.table("PollOptions").select("id", "option").eq("poll", poll_id).execute()
+        print(f"response is {response}")
+        candidate_text = {}
+        for item in response.data:
+            candidate_text[item["id"]] = item["option"]
+            candidates[item["id"]] = set()
+        # get votes
+        response = supabase.table("Votes").select("user", "option").eq("poll", poll_id).execute()
+        print(f"response is {response}")
+        for vote in response.data:
+            candidates[vote["option"]].add(vote["user"])
+        print(f"candidates is {candidates}")
+        if seats == 1:
+            sorted_sets = zip(candidates.keys(), [len(candidates[k]) for k in candidates.keys()])
+        else:
+            # get each potential winning set
+            winning_sets = []
+            total_votes = []
+            for combination in itertools.combinations(candidates.keys(), seats):
+                print(f"combination is {combination}")
+                winning_sets.append(combination)
+            for winning_set in winning_sets:
+                # vote overlap counts how many users voted for 1, 2, 3, etc of the candidates in the winning set
+                vote_overlap = []
+                for c in range(len(winning_set)):
+                    vote_overlap.append(set())
+                    votes = candidates[winning_set[c]]
+                    for i in range(0,c):
+                        promote = vote_overlap[i].intersection(votes)
+                        vote_overlap[i] = vote_overlap[i] - promote
+                        vote_overlap[i+1] = vote_overlap[i+1].union(promote)
+                        votes = votes - promote
+                    vote_overlap[c] = votes
+                total = 0
+                for c in range(len(winning_set)):
+                    total += len(vote_overlap[c])/(c+1)
+                total_votes.append(total)
+            print(f"total votes is {total_votes}")
+            sorted_sets = sorted(zip(total_votes, winning_sets), reverse=True)
+        print(f"sorted sets is {sorted_sets}")
+        if seats == 1:
+            winners = f"The winner is {candidate_text[sorted_sets[0][1]]}."
+        elif seats == 2:
+            print(f"candidate_text is {candidate_text}")
+            print(f"sorted_sets winners are {sorted_sets[0][1][0]} and {sorted_sets[0][1][1]}")
+            winners = f"The winners are {candidate_text[sorted_sets[0][1][0]]} and {candidate_text[sorted_sets[0][1][1]]}."
+        else:
+            winners_string = ", ".join([candidate_text[x] for x in sorted_sets[0:seats-1][1]]) + " and " + candidate_text[sorted_sets[-1][1]]
+            winners = f"The winners are {winners_string}."
+        print(f"winners is {winners}")
+        return render_template('pollresults.html.j2', winners=winners, ties="", candidates=candidate_text)
+    except Exception as err:
+        print(traceback.format_exc())
+        return type(err).__name__
 
 @app.route("/new_user", methods=["POST"])
 def new_user():

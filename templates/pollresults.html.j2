@@ -8,19 +8,23 @@
 
 <body>
   <h1>Poll results!</h1>
-  <p>Winners: {winners.join(', ')}</p>
+  <p>{{winners}}</p>
+  <p>{{ties}}</p>
   <hr />
   <p>Did you have a different preferred result?</p>
   <p>You can see how many more votes the winners got than your preferred result. What was your preferred result?</p>
-  {candidateList.map((candidate, index) => (
-  <div key={index}>
+  <form hx-post="/resultsubmit" hx-target="#resultresponse" hx-swap="innerHTML">
+    <input type="hidden" name="poll_id" value="{{ poll_id }}" />
+    {% for id, candidate in candidates.items() %}
     <label>
-      <input type="checkbox" value={candidate} checked={selectedOptions.includes(candidate)} onChange={handleChange} />
-      {candidate}
+      <input type="checkbox" name="poll_option" value="{{id}}|{{candidate}}" /> {{candidate}}
     </label>
-  </div>
-  ))}
-  <p>{voteDifferenceString}</p>
+    <br />
+    {% endfor %}
+    <br />
+    <button type="submit">See how close your preferred candidates were to winning</button>
+  </form>
+  <div id="resultresponse"></div>
 </body>
 
 </html>
