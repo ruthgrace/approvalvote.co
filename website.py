@@ -101,23 +101,26 @@ If you didn't request this code, please ignore this email.
     except Exception as e:
         print(f"Error sending email: {e}")
 
-def votes_by_candidate(poll_id, candidate_ids=None):
+def votes_by_candidate(poll_id, supabase, candidate_ids=None):
         if candidate_ids is None:
             response = supabase.table("PollOptions").select("id").eq("poll", poll_id).execute()
+            candidate_ids = [int(item["id"]) for item in response.data]
         candidates = {}
-        for item in response.data:
-            candidates[item["id"]] = set()
+        for candidate_id in candidate_ids:
+            candidates[candidate_id] = set()
         # get votes
-        response = supabase.table("Votes").select("user", "option").eq("poll", poll_id).execute()
-        for vote in response.data:
-            candidates[vote["option"]].add(vote["user"])
+        for candidate_id in candidate_ids:
+            response = supabase.table("Votes").select("user", "option").eq("poll", poll_id).eq("option", candidate_id).execute()
+            for vote in response.data:
+                candidates[vote["option"]].add(vote["user"])
         return candidates
 
-def candidate_text_dict(poll_id):
+def candidate_text_dict(poll_id, supabase):
         response = supabase.table("PollOptions").select("id", "option").eq("poll", poll_id).execute()
         candidate_text = {}
         for item in response.data:
             candidate_text[item["id"]] = item["option"]
+        candidate_text = dict(sorted(candidate_text.items()))
         return candidate_text
 
 def votes_by_number_of_candidates(winning_set, candidates):
@@ -224,8 +227,8 @@ def poll_results_page(poll_id):
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
         response = supabase.table("Polls").select("seats").eq("id", poll_id).execute()
         seats = response.data[0]["seats"]
-        candidate_text = candidate_text_dict(poll_id)
-        candidates = votes_by_candidate(poll_id)
+        candidate_text = candidate_text_dict(poll_id, supabase)
+        candidates = votes_by_candidate(poll_id, supabase)
         sorted_sets = sorted_candidate_sets(seats, candidates)
         if seats == 1:
             winners = f"The winner is {candidate_text[sorted_sets[0][1]]}."
@@ -234,7 +237,13 @@ def poll_results_page(poll_id):
         else:
             winners_string = ", ".join([candidate_text[x] for x in sorted_sets[0:seats-1][1]]) + " and " + candidate_text[sorted_sets[-1][1]]
             winners = f"The winners are {winners_string}."
-        print(f"winners is {winners}")
+        # save results to database
+        winning_set = set(sorted_sets[0][1])
+        losing_set = set(candidate_text.keys()) - winning_set
+        for c in winning_set:
+            response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": True}).execute()
+        for c in losing_set:
+            response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": False}).execute()
         return render_template('poll_results.html.j2', winners=winners, ties="", candidates=candidate_text, seats=seats, poll_id=poll_id)
     except Exception as err:
         print(traceback.format_exc())
@@ -244,20 +253,26 @@ def poll_results_page(poll_id):
 def compare_results():
     poll_id = request.form.get("poll_id")
     poll_options = request.form.getlist("poll_option")
-    seats = request.form.get("seats")
+    seats = int(request.form.get("seats"))
     if len(poll_options) != seats:
+        print(f"detected {len(poll_options)} options selected and {seats} seats. type of seats is {type(seats)}")
         return f"You must select the same number of options as the number of winners. The number of winners is {seats}."
-    candidate_text = {}
+    desired_candidate_text = {}
     for option in poll_options:
         (option_id, option_name) = option.split("|", maxsplit=1)
-        candidate_text[option_id] = option_name
-    candidates = votes_by_candidate(poll_id, candidate_ids=candidate_text.keys())
+        desired_candidate_text[int(option_id)] = option_name
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
-        response = supabase.table("PollOptions").select("option").eq("poll", poll_id).eq("winner", True).execute()
+        response = supabase.table("PollOptions").select("id", "option", "winner").eq("poll", poll_id).execute()
         winners = []
+        actual_candidates = []
+        candidate_text = {}
         for item in response.data:
-            winners.append(item["option"])
+            if item["winner"]:
+                winners.append(item["id"])
+                actual_candidates.append(item["option"])
+            candidate_text[item["id"]] = item["option"]
+        candidates = votes_by_candidate(poll_id, supabase, candidate_ids=list(candidate_text.keys()))
         actual_results = votes_by_number_of_candidates(winners, candidates)
         max_votes = 0
         actual_vote_tally = []
@@ -265,14 +280,13 @@ def compare_results():
             actual_vote_tally.append(len(result))
             if len(result) > max_votes:
                 max_votes = len(result)
-        desired_results = votes_by_number_of_candidates(candidate_text.keys(), candidates)
+        desired_results = votes_by_number_of_candidates(list(desired_candidate_text.keys()), candidates)
         desired_vote_tally = []
         for result in desired_results:
             desired_vote_tally.append(len(result))
             if len(result) > max_votes:
                 max_votes = len(result)
-        # this is bugged because candidates has all the canddiates not just the candidates in the sets of actual or desired
-        return render_template('alternate_results.html.j2', candidates=candidate_text, actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes)
+        return render_template('alternate_results.html.j2', actual_candidates=actual_candidates, desired_candidates=list(desired_candidate_text.values()), actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes)
     except Exception as err:
         print(traceback.format_exc())
         return type(err).__name__
