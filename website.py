@@ -60,7 +60,9 @@ def update_form_data(poll_data, supabase):
 def random_code():
     return "".join([random.choice(DIGITS) for _ in range(VERIFICATION_CODE_LENGTH)])
 
-def send_verification_email(recipient_email, verification_code):
+def send_verification_email(recipient_email):
+    code = random_code()
+    session[VERIFICATION_CODE] = code
     # Create the email content
     message = EmailMessage()
     message["Subject"] = "ApprovalVote.Co Verification Code"
@@ -69,11 +71,11 @@ def send_verification_email(recipient_email, verification_code):
     
     # Create a simple email body; you could also use HTML here
     message.set_content(f"""
-    Hello,
+Hello,
 
-    Your verification code for ApprovalVote.Co is: {verification_code}
+Your verification code for ApprovalVote.Co is: {code}
 
-    If you didn't request this code, please ignore this email.
+If you didn't request this code, please ignore this email.
     """.strip())
 
     smtp_server = "mail.privateemail.com"
@@ -133,6 +135,7 @@ def new_vote(form_data=None):
         user_id = get_user_id(poll_data[EMAIL], supabase)
         if EMAIL not in session:
             update_form_data(poll_data, supabase)
+            send_verification_email(poll_data[EMAIL])
             return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_VOTE)
         # delete any existing votes user already has on this poll
         response = supabase.table("Votes").delete().eq("poll", poll_data[ID]).eq("user", user_id).execute()
@@ -145,18 +148,18 @@ def new_vote(form_data=None):
                 .insert({"poll": poll_data[ID], "option": option_id, "user": user_id})
                 .execute()
             )
-            print(f"insert vote response: {response}")
-    except Exception:
-        print(traceback.format_exc())
-    if len(option_names) == 1:
+            # print(f"insert vote response: {response}")
+        if len(option_names) == 1:
+            return f"""
+            <h2>Vote submitted!</h2>
+            <p>You voted for: {option_names[0]}</p>
+            """
         return f"""
         <h2>Vote submitted!</h2>
-        <p>You voted for: {option_names[0]}</p>
+        <p>You voted for: {", ".join(option_names[:-1])}, and {option_names[-1]}</p>
         """
-    return f"""
-    <h2>Vote submitted!</h2>
-    <p>You voted for: {", ".join(option_names[:-1])}, and {option_names[-1]}</p>
-    """
+    except Exception:
+        print(traceback.format_exc())
 
 @app.route("/results")
 def poll_results_page():
@@ -180,9 +183,7 @@ def new_user():
         print(f"new user response {response}")
         user_id = response.data[0]['id']
         print(f"user id is {user_id}")
-        code = random_code()
-        session[VERIFICATION_CODE] = code
-        send_verification_email(email, code)
+        send_verification_email(email)
         return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function)
     except Exception:
         print(traceback.format_exc())
@@ -233,6 +234,7 @@ def new_poll(form_data=None):
         user_id = get_user_id(poll_data[EMAIL], supabase)
         if EMAIL not in session:
             update_form_data(poll_data, supabase)
+            send_verification_email(poll_data[EMAIL])
             return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL)
         response = (
             supabase.table("Polls")
