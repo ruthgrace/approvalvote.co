@@ -19,9 +19,10 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* voting results page - take into account ties
+* voting results page fix axis labels, put charts side by side on web (but not mobile)
 * production server
 * feature for whether or not a poll requires email verification from voters
+* voting results page - take into account ties
 * incorporate design
 * revisit domain reputation issue for sending verification code email
 * feature for opening and closing polls

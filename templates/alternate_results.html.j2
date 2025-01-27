@@ -1,31 +1,69 @@
-<div class="chart-wrap vertical">
-  <h2 class="title">Votes for your preferred result: {{desired_candidates}}</h2>
-  <p>actual vote tally is {{actual_vote_tally}}</p>
-  <p>desired vote tally is {{desired_vote_tally}}</p>
-  <p>max votes is {{max_votes}}</p>
-  <div class="grid">
-    {% if maxvotes == 1 %}
-      {% set candidate_name = desired_candidates[0] %}
-        <div class="bar" style="--bar-value:{{desired_vote_tally[i]*100/max_votes}}%;" data-name="Votes for {{candidate_name}}" title="Votes for {{candidate_name}}"></div>
-    {% else %}
-      {% for  vote in desired_vote_tally %}
-        <div class="bar" style="--bar-value:{{vote*100/max_votes}}%;" data-name="Votes for {{desired_candidates[loop.index]}} candidates in this set" title="Votes for {{desired_candidates[loop.index]}} candidates in this set"></div>
-      {% endfor %} 
-    {% endif %}
+<div class="container mx-auto px-4">
+  <div style="display: flex; justify-content: space-around; gap: 20px;">
+    <div style="flex: 1;">
+      <h2 class="text-2xl font-bold mb-4">Votes for preferred result: {{ desired_candidates }}</h2>
+      <div id="chart1" class="h-64"></div>
+    </div>
+
+    <!-- Second Chart Container -->
+    <div style="flex: 1;">
+      <h2 class="text-2xl font-bold mb-4">Votes for the actual winners: {{actual_candidates}}</h2>
+      <div id="chart2" class="h-64"></div>
+    </div>
+
   </div>
 </div>
 
-<div class="chart-wrap vertical">
-  <h2 class="title">Votes for the actual winners: {{actual_candidates}}</h2>
+  <script>
+    var options1 = {
+      chart: {
+        type: 'bar',
+        height: '400'
+      },
+      series: [
+        {
+          name: 'Votes',
+          data: {{desired_vote_tally}}
+        }
+      ],
+      xaxis: {
+        categories: {{desired_chart_labels}}
+      },
+      colors: ['#4F46E5'],
+      plotOptions: {
+        bar: {
+          distributed: false,
+          borderRadius: 4
+        }
+      }
+    };
 
-  <div class="grid">
-  {% if maxvotes == 1 %}
-      {% set candidate_name = actual_candidates[0] %} 
-        <div class="bar" style="--bar-value:{{actual_vote_tally[i]*100/max_votes}}%;" data-name="Votes for {{candidate_name}}" title="Votes for {{candidate_name}}"></div>
-    {% else %}
-      {% for vote in actual_vote_tally %}
-        <div class="bar" style="--bar-value:{{vote*100/max_votes}}%;" data-name="Votes for {{actual_candidates[loop.index]}} candidates in this set" title="Votes for {{actual_candidates[loop.index]}} candidates in this set"></div>
-      {% endfor %}    
-    {% endif %}
-  </div>
-</div>
+    var chart1 = new ApexCharts(document.querySelector('#chart1'), options1);
+    chart1.render();
+
+    var options2 = {
+      chart: {
+        type: 'bar',
+        height: '400'
+      },
+      series: [
+        {
+          name: 'Votes',
+          data: {{actual_vote_tally}}
+        }
+      ],
+      xaxis: {
+        categories: {{actual_chart_labels}}
+      },
+      colors: ['#4F46E5'],
+      plotOptions: {
+        bar: {
+          distributed: false,
+          borderRadius: 4
+        }
+      }
+    };
+
+    var chart2 = new ApexCharts(document.querySelector('#chart2'), options2);
+    chart2.render();
+  </script>
