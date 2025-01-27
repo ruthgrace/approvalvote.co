@@ -21,8 +21,9 @@ flask --app website run --host=0.0.0.0 --debug
 ## to do
 * voting results page - take into account ties
 * production server
-* revisit domain reputation issue for sending verification code email
 * feature for whether or not a poll requires email verification from voters
+* incorporate design
+* revisit domain reputation issue for sending verification code email
 * feature for opening and closing polls
 ** consider caching results in results db once poll closes
 * make sure there aren't duplicate options

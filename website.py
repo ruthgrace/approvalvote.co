@@ -35,7 +35,7 @@ def home_page():
 
 @app.route("/makepoll")
 def make_poll_page():
-    return render_template('makepoll.html.j2')
+    return render_template('make_poll.html.j2')
 
 def get_user_id(email, supabase):
         response = supabase.table("Users").select("id").eq("email", email).execute()
@@ -101,6 +101,61 @@ If you didn't request this code, please ignore this email.
     except Exception as e:
         print(f"Error sending email: {e}")
 
+def votes_by_candidate(poll_id, candidate_ids=None):
+        if candidate_ids is None:
+            response = supabase.table("PollOptions").select("id").eq("poll", poll_id).execute()
+        candidates = {}
+        for item in response.data:
+            candidates[item["id"]] = set()
+        # get votes
+        response = supabase.table("Votes").select("user", "option").eq("poll", poll_id).execute()
+        for vote in response.data:
+            candidates[vote["option"]].add(vote["user"])
+        return candidates
+
+def candidate_text_dict(poll_id):
+        response = supabase.table("PollOptions").select("id", "option").eq("poll", poll_id).execute()
+        candidate_text = {}
+        for item in response.data:
+            candidate_text[item["id"]] = item["option"]
+        return candidate_text
+
+def votes_by_number_of_candidates(winning_set, candidates):
+    # vote overlap counts how many users voted for 1, 2, 3, etc of the candidates in the winning set
+    vote_overlap = []
+    for c in range(len(winning_set)):
+        vote_overlap.append(set())
+        votes = candidates[winning_set[c]]
+        for i in range(0,c):
+            promote = vote_overlap[i].intersection(votes)
+            vote_overlap[i] = vote_overlap[i] - promote
+            vote_overlap[i+1] = vote_overlap[i+1].union(promote)
+            votes = votes - promote
+        vote_overlap[0] = vote_overlap[0].union(votes)
+    return vote_overlap
+
+def sorted_candidate_sets(seats, candidates):
+    if seats == 1:
+        sorted_sets = zip(candidates.keys(), [len(candidates[k]) for k in candidates.keys()])
+    else:
+        # get each potential winning set
+        winning_sets = []
+        total_votes = []
+        for combination in itertools.combinations(candidates.keys(), seats):
+            winning_sets.append(combination)
+        for winning_set in winning_sets:
+            vote_overlap = votes_by_number_of_candidates(winning_set, candidates)
+            total = 0
+            for c in range(len(winning_set)):
+                if c == 0:
+                    total += len(vote_overlap[c])
+                else:
+                    total += len(vote_overlap[c])*(1+1/(c+1))
+            total_votes.append(total)
+        sorted_sets = sorted(zip(total_votes, winning_sets), reverse=True)
+    # print(f"sorted sets is {sorted_sets}")
+    return sorted_sets
+
 @app.route("/vote/<int:poll_id>")
 def poll_page(poll_id):
     candidates = []
@@ -131,7 +186,7 @@ def new_vote(form_data=None):
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
         if not user_exists(poll_data[EMAIL], supabase):
-            print(f"user does not exist based on email {poll_data[EMAIL]}")
+            # print(f"user does not exist based on email {poll_data[EMAIL]}")
             update_form_data(poll_data, supabase)
             return render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_VOTE)
         user_id = get_user_id(poll_data[EMAIL], supabase)
@@ -168,61 +223,56 @@ def poll_results_page(poll_id):
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
         response = supabase.table("Polls").select("seats").eq("id", poll_id).execute()
-        print(f"response is {response}")
         seats = response.data[0]["seats"]
-        # get candidates
-        candidates = {}
-        response = supabase.table("PollOptions").select("id", "option").eq("poll", poll_id).execute()
-        print(f"response is {response}")
-        candidate_text = {}
-        for item in response.data:
-            candidate_text[item["id"]] = item["option"]
-            candidates[item["id"]] = set()
-        # get votes
-        response = supabase.table("Votes").select("user", "option").eq("poll", poll_id).execute()
-        print(f"response is {response}")
-        for vote in response.data:
-            candidates[vote["option"]].add(vote["user"])
-        print(f"candidates is {candidates}")
-        if seats == 1:
-            sorted_sets = zip(candidates.keys(), [len(candidates[k]) for k in candidates.keys()])
-        else:
-            # get each potential winning set
-            winning_sets = []
-            total_votes = []
-            for combination in itertools.combinations(candidates.keys(), seats):
-                print(f"combination is {combination}")
-                winning_sets.append(combination)
-            for winning_set in winning_sets:
-                # vote overlap counts how many users voted for 1, 2, 3, etc of the candidates in the winning set
-                vote_overlap = []
-                for c in range(len(winning_set)):
-                    vote_overlap.append(set())
-                    votes = candidates[winning_set[c]]
-                    for i in range(0,c):
-                        promote = vote_overlap[i].intersection(votes)
-                        vote_overlap[i] = vote_overlap[i] - promote
-                        vote_overlap[i+1] = vote_overlap[i+1].union(promote)
-                        votes = votes - promote
-                    vote_overlap[c] = votes
-                total = 0
-                for c in range(len(winning_set)):
-                    total += len(vote_overlap[c])/(c+1)
-                total_votes.append(total)
-            print(f"total votes is {total_votes}")
-            sorted_sets = sorted(zip(total_votes, winning_sets), reverse=True)
-        print(f"sorted sets is {sorted_sets}")
+        candidate_text = candidate_text_dict(poll_id)
+        candidates = votes_by_candidate(poll_id)
+        sorted_sets = sorted_candidate_sets(seats, candidates)
         if seats == 1:
             winners = f"The winner is {candidate_text[sorted_sets[0][1]]}."
         elif seats == 2:
-            print(f"candidate_text is {candidate_text}")
-            print(f"sorted_sets winners are {sorted_sets[0][1][0]} and {sorted_sets[0][1][1]}")
             winners = f"The winners are {candidate_text[sorted_sets[0][1][0]]} and {candidate_text[sorted_sets[0][1][1]]}."
         else:
             winners_string = ", ".join([candidate_text[x] for x in sorted_sets[0:seats-1][1]]) + " and " + candidate_text[sorted_sets[-1][1]]
             winners = f"The winners are {winners_string}."
         print(f"winners is {winners}")
-        return render_template('pollresults.html.j2', winners=winners, ties="", candidates=candidate_text)
+        return render_template('poll_results.html.j2', winners=winners, ties="", candidates=candidate_text, seats=seats, poll_id=poll_id)
+    except Exception as err:
+        print(traceback.format_exc())
+        return type(err).__name__
+
+@app.route("/resultsubmit", methods=["POST"])
+def compare_results():
+    poll_id = request.form.get("poll_id")
+    poll_options = request.form.getlist("poll_option")
+    seats = request.form.get("seats")
+    if len(poll_options) != seats:
+        return f"You must select the same number of options as the number of winners. The number of winners is {seats}."
+    candidate_text = {}
+    for option in poll_options:
+        (option_id, option_name) = option.split("|", maxsplit=1)
+        candidate_text[option_id] = option_name
+    candidates = votes_by_candidate(poll_id, candidate_ids=candidate_text.keys())
+    try:
+        supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
+        response = supabase.table("PollOptions").select("option").eq("poll", poll_id).eq("winner", True).execute()
+        winners = []
+        for item in response.data:
+            winners.append(item["option"])
+        actual_results = votes_by_number_of_candidates(winners, candidates)
+        max_votes = 0
+        actual_vote_tally = []
+        for result in actual_results:
+            actual_vote_tally.append(len(result))
+            if len(result) > max_votes:
+                max_votes = len(result)
+        desired_results = votes_by_number_of_candidates(candidate_text.keys(), candidates)
+        desired_vote_tally = []
+        for result in desired_results:
+            desired_vote_tally.append(len(result))
+            if len(result) > max_votes:
+                max_votes = len(result)
+        # this is bugged because candidates has all the canddiates not just the candidates in the sets of actual or desired
+        return render_template('alternate_results.html.j2', candidates=candidate_text, actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes)
     except Exception as err:
         print(traceback.format_exc())
         return type(err).__name__
