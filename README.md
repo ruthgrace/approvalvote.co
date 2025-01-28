@@ -123,7 +123,9 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* production server
+* check type error on poll 19 results
+* make sure email address is not empty
+* seats should be at least 1
 * check how it looks on mobile
 * feature for whether or not a poll requires email verification from voters
 * voting results page - take into account ties
@@ -132,3 +134,4 @@ flask --app website run --host=0.0.0.0 --debug
 * feature for opening and closing polls
 ** consider caching results in results db once poll closes
 * make sure there aren't duplicate options
+* show vote counts on results page for each candidate (just keep it simple for now)
