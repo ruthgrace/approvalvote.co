@@ -12,6 +12,35 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+use nginx/approvalvote.bootstrap to set up letsencrypt ssl certs for https
+```
+sudo ln -s /var/www/approvalvote.co/nginx/approvalvote.bootstrap /etc/nginx/conf.d/approvalvote.conf
+```
+make sure config works
+```
+sudo nginx -t
+```
+restart nginx
+```
+sudo systemctl restart nginx
+```
+make sure nginx config context is httpd_config_t
+```
+sudo chcon -t httpd_config_t /etc/nginx/conf.d/approvalvote.bootstrap
+sudo semanage fcontext -a -t httpd_config_t "/etc/nginx/conf.d(/.*)?"
+sudo restorecon -Rv /etc/nginx/conf.d
+```
+
+ensure webroot context is httpd_sys_content_t
+```
+sudo semanage fcontext -a -t httpd_sys_content_t "/var/www/approvalvote.co(/.*)?"
+sudo restorecon -Rv /var/www/approvalvote.co
+```
+make ssl certs
+```
+sudo certbot certonly --force-renewal -a webroot -w /var/www/approvalvote.co -d approvalvote.co -d www.approvalvote.co
+```
+
 ## run in development
 
 ```
@@ -19,8 +48,8 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* voting results page fix axis labels, put charts side by side on web (but not mobile)
 * production server
+* check how it looks on mobile
 * feature for whether or not a poll requires email verification from voters
 * voting results page - take into account ties
 * incorporate design
