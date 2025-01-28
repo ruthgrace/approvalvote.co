@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve your Flask app
+After=network.target
+
+[Service]
+User=approvalvote
+Group=nginx
+WorkingDirectory=/var/www/approvalvote.co
+Environment="PATH=/var/www/approvalvote.co/venv/bin"
+ExecStart=/var/www/approvalvote.co/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 website:app
+
+[Install]
+WantedBy=multi-user.target
