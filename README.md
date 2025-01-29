@@ -135,7 +135,6 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* make sure email address is not empty
 * seats should be at least 1
 * check how it looks on mobile
 * feature for whether or not a poll requires email verification from voters

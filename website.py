@@ -175,6 +175,7 @@ def poll_page(poll_id):
 
 @app.route("/votesubmit", methods=["POST"])
 def new_vote(form_data=None):
+    print("new vote")
     poll_data = {}
     if form_data is not None:
         poll_data = form_data
@@ -182,9 +183,14 @@ def new_vote(form_data=None):
         poll_data[SELECTED] = request.form.getlist("poll_option")
         poll_data[ID] = request.form.get("poll_id")
         poll_data[EMAIL] = request.form.get("user_email")
+    # TODO: update this to check if poll requires email verification
+    if poll_data[EMAIL] == "":
+        return f"""
+        <p>Your vote was not counted. Please enter an email address.</p>
+        """
     if len(poll_data[SELECTED]) == 0:
         return f"""
-        <h2>Your vote was not counted. Please select at least one option.</h2>
+        <p>Your vote was not counted. Please select at least one option.</p>
         """
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
