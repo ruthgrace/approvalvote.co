@@ -139,7 +139,7 @@ def votes_by_number_of_candidates(winning_set, candidates):
 
 def sorted_candidate_sets(seats, candidates):
     if seats == 1:
-        sorted_sets = zip(candidates.keys(), [len(candidates[k]) for k in candidates.keys()])
+        sorted_sets = list(sorted(zip([len(candidates[k]) for k in candidates.keys()], candidates.keys()), reverse=True))
     else:
         # get each potential winning set
         winning_sets = []
@@ -232,13 +232,15 @@ def poll_results_page(poll_id):
         sorted_sets = sorted_candidate_sets(seats, candidates)
         if seats == 1:
             winners = f"The winner is {candidate_text[sorted_sets[0][1]]}."
-        elif seats == 2:
-            winners = f"The winners are {candidate_text[sorted_sets[0][1][0]]} and {candidate_text[sorted_sets[0][1][1]]}."
+            winning_set = set([sorted_sets[0][1]])
         else:
-            winners_string = ", ".join([candidate_text[x] for x in sorted_sets[0:seats-1][1]]) + " and " + candidate_text[sorted_sets[-1][1]]
-            winners = f"The winners are {winners_string}."
+            winning_set = set(sorted_sets[0][1])
+            if seats == 2:
+                winners = f"The winners are {candidate_text[sorted_sets[0][1][0]]} and {candidate_text[sorted_sets[0][1][1]]}."
+            else:
+                winners_string = ", ".join([candidate_text[x] for x in sorted_sets[0:seats-1][1]]) + " and " + candidate_text[sorted_sets[-1][1]]
+                winners = f"The winners are {winners_string}."
         # save results to database
-        winning_set = set(sorted_sets[0][1])
         losing_set = set(candidate_text.keys()) - winning_set
         for c in winning_set:
             response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": True}).execute()
@@ -255,7 +257,6 @@ def compare_results():
     poll_options = request.form.getlist("poll_option")
     seats = int(request.form.get("seats"))
     if len(poll_options) != seats:
-        print(f"detected {len(poll_options)} options selected and {seats} seats. type of seats is {type(seats)}")
         return f"You must select the same number of options as the number of winners. The number of winners is {seats}."
     desired_candidates = {}
     for option in poll_options:
@@ -288,10 +289,17 @@ def compare_results():
                 max_votes = len(result)
         actual_candidates_text = []
         desired_candidates_text = []
-        if len(actual_candidates) > 1:
+        if len(actual_candidates) == 1:
+            actual_candidates_text.append(actual_candidates[0])
+            desired_candidates_text.append(list(desired_candidates.values())[0])
+        else:
             for i in range(len(actual_candidates)):
                 actual_candidates_text.append(f"Votes for {i+1} candidates in this set")
                 desired_candidates_text.append(f"Votes for {i+1} candidates in this set")
+        print(f"actual candidates is {actual_candidates}, desired candidates is {desired_candidates}")
+        print(f"actual candidates text is {actual_candidates_text}, desired candidates text is {desired_candidates_text}")
+        print(f"actual vote tally is {actual_vote_tally}, desired vote tally is {desired_vote_tally}")
+        print(f"max votes is {max_votes}")
         return render_template('alternate_results.html.j2', actual_candidates=actual_candidates,
         actual_chart_labels=actual_candidates_text, desired_candidates=list(desired_candidates.values()), 
         desired_chart_labels=desired_candidates_text, actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes)

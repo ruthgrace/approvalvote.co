@@ -94,6 +94,18 @@ sudo systemctl status approvalvote
 
 ### troubleshooting
 
+#### check status
+```
+sudo systemctl status approvalvote
+```
+
+#### follow logs
+```
+sudo journalctl -u approvalvote -f
+```
+
+#### cursor/vs code doesn't have permission to change files
+
 last time i added myself to the production group (approvalvote_group) i also had to clean up all the vs code and cursor files before logging in via vs code or cursor would have the correct group so i could edit files
 ```
 First, let's see all running VS Code related processes on the server:
@@ -123,7 +135,6 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* check type error on poll 19 results
 * make sure email address is not empty
 * seats should be at least 1
 * check how it looks on mobile
