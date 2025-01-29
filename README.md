@@ -135,7 +135,7 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* show vote counts on results page for each candidate (just keep it simple for now)
+* poll title should be in poll results page
 * check how it looks on mobile
 * feature for whether or not a poll requires email verification from voters
 * voting results page - take into account ties

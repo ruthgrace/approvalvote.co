@@ -235,24 +235,29 @@ def poll_results_page(poll_id):
         seats = response.data[0]["seats"]
         candidate_text = candidate_text_dict(poll_id, supabase)
         candidates = votes_by_candidate(poll_id, supabase)
+        vote_tally = {}
+        for candidate in candidates:
+            vote_tally[candidate] = len(candidates[candidate])
+        vote_tally = dict(sorted(vote_tally.items(), key=lambda x: x[1], reverse=True))
+        vote_labels = [candidate_text[c] for c in vote_tally.keys()]
         sorted_sets = sorted_candidate_sets(seats, candidates)
         if seats == 1:
-            winners = f"The winner is {candidate_text[sorted_sets[0][1]]}."
+            winners = f"The winner is <strong>{candidate_text[sorted_sets[0][1]]}</strong>."
             winning_set = set([sorted_sets[0][1]])
         else:
             winning_set = set(sorted_sets[0][1])
             if seats == 2:
-                winners = f"The winners are {candidate_text[sorted_sets[0][1][0]]} and {candidate_text[sorted_sets[0][1][1]]}."
+                winners = f"The winners are <strong>{candidate_text[sorted_sets[0][1][0]]} and {candidate_text[sorted_sets[0][1][1]]}</strong>."
             else:
                 winners_string = ", ".join([candidate_text[x] for x in sorted_sets[0:seats-1][1]]) + " and " + candidate_text[sorted_sets[-1][1]]
-                winners = f"The winners are {winners_string}."
+                winners = f"The winners are <strong>{winners_string}</strong>."
         # save results to database
         losing_set = set(candidate_text.keys()) - winning_set
         for c in winning_set:
-            response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": True}).execute()
+            response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": True, "vote_tally": vote_tally[c]}).execute()
         for c in losing_set:
-            response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": False}).execute()
-        return render_template('poll_results.html.j2', winners=winners, ties="", candidates=candidate_text, seats=seats, poll_id=poll_id)
+            response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": False, "vote_tally": vote_tally[c]}).execute()
+        return render_template('poll_results.html.j2', winners=winners, ties="", candidates=candidate_text, seats=seats, poll_id=poll_id, vote_labels=vote_labels, vote_tally=list(vote_tally.values()))
     except Exception as err:
         print(traceback.format_exc())
         return type(err).__name__

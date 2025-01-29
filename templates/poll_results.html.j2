@@ -17,6 +17,15 @@
   <h1>Poll results!</h1>
   <p>{{winners}}</p>
   <p>{{ties}}</p>
+  <div class="container mx-auto px-4">
+    <div style="display: flex; justify-content: space-around; gap: 20px;">
+      <div style="flex: 1;">
+        <h2 class="text-2xl font-bold mb-4">Votes</h2>
+        <p>Here is a chart of the vote counts for each candidate. Keep in mind that voters can vote for as many candidates as they want.</p>
+        <div id="chart" class="h-64"></div>
+      </div>
+    </div>
+  </div>
   <hr />
   <p>Did you have a different preferred result?</p>
   <p>You can see how many more votes the winners got than your preferred result. What was your preferred result?</p>
@@ -33,6 +42,34 @@
     <button type="resultsubmit">See how close your preferred candidates were to winning</button>
   </form>
   <div id="resultresponse"></div>
+
+  <script>
+    var options = {
+      chart: {
+        type: 'bar',
+        height: '400'
+      },
+      series: [
+        {
+          name: 'Votes',
+          data: {{vote_tally}}
+        }
+      ],
+      xaxis: {
+        categories: {{vote_labels}}
+      },
+      colors: ['#4F46E5'],
+      plotOptions: {
+        bar: {
+          distributed: false,
+          borderRadius: 4
+        }
+      }
+    };
+
+    var chart = new ApexCharts(document.querySelector('#chart'), options);
+    chart.render();
+  </script>
 </body>
 
 </html>
