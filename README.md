@@ -140,7 +140,6 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* make sure that bars in results comparison are different heights when different values
 * voting results page - take into account ties
 * incorporate design
 * poll title should be in poll results page

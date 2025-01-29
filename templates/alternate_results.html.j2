@@ -16,6 +16,10 @@
 
   <script>
     var options1 = {
+      yaxis: {
+        min: 0,
+        max: {{max_votes}}
+      },
       chart: {
         type: 'bar',
         height: '400'
@@ -42,6 +46,10 @@
     chart1.render();
 
     var options2 = {
+      yaxis: {
+        min: 0,
+        max: {{max_votes}}
+      },
       chart: {
         type: 'bar',
         height: '400'
