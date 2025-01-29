@@ -458,4 +458,5 @@ def new_poll(form_data=None):
     <p>You entered {len(candidates)} candidate(s): {candidates}</p>
     <p>Number of options that will be selected as winners: {poll_data[SEATS]}</p>
     <p>Link for your poll: <a href="https://approvalvote.co/vote/{poll_id}">approvalvote.co/vote/{poll_id}</a></p>
+    <p>When everyone is done voting, you can check the results here: <a href="https://approvalvote.co/results/{poll_id}">approvalvote.co/results/{poll_id}</a></p>
     """
