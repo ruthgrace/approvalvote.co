@@ -166,13 +166,15 @@ def poll_page(poll_id):
     seats = 0
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
-        response = supabase.table("Polls").select("seats").eq("id", poll_id).single().execute()
+        response = supabase.table("Polls").select("seats", "title", "description").eq("id", poll_id).single().execute()
         seats = response.data['seats']
+        title = response.data['title']
+        description = response.data['description'] or "Vote on this poll!"
         response = supabase.table("PollOptions").select("id, option").eq("poll", poll_id).execute()
         candidates = [(row['id'], row['option']) for row in response.data]
     except Exception:
         print(traceback.format_exc())
-    return render_template('poll.html.j2', seats=seats, candidates=candidates, poll_id=poll_id)
+    return render_template('poll.html.j2', seats=seats, candidates=candidates, poll_id=poll_id, title=title, description=description)
 
 @app.route("/votesubmit", methods=["POST"])
 def new_vote(form_data=None):
@@ -237,9 +239,12 @@ def new_vote(form_data=None):
 def poll_results_page(poll_id):
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
-        response = supabase.table("Polls").select("seats, title").eq("id", poll_id).execute()
+        response = supabase.table("Polls").select("seats, title, description").eq("id", poll_id).execute()
         seats = response.data[0]["seats"]
         title = response.data[0]["title"]
+        description = response.data[0]["description"] or ""
+        if description != "":
+            description = f"Poll description: {description}"
         candidate_text = candidate_text_dict(poll_id, supabase)
         candidates = votes_by_candidate(poll_id, supabase)
         vote_tally = {}
@@ -264,7 +269,7 @@ def poll_results_page(poll_id):
             response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": True, "vote_tally": vote_tally[c]}).execute()
         for c in losing_set:
             response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": False, "vote_tally": vote_tally[c]}).execute()
-        return render_template('poll_results.html.j2', winners=winners, ties="", candidates=candidate_text, seats=seats, poll_id=poll_id, vote_labels=vote_labels, vote_tally=list(vote_tally.values()), title=title)
+        return render_template('poll_results.html.j2', winners=winners, ties="", candidates=candidate_text, seats=seats, poll_id=poll_id, vote_labels=vote_labels, vote_tally=list(vote_tally.values()), title=title, description=description)
     except Exception as err:
         print(traceback.format_exc())
         return type(err).__name__

@@ -8,7 +8,8 @@
 
 <body>
   <div>
-    <h1>Vote!</h1>
+    <h1>{{title}}</h1>
+    <p>{{description}}</p>
     <form hx-post="/votesubmit" hx-target="#response" hx-swap="innerHTML">
       <input type="hidden" name="poll_id" value="{{ poll_id }}" />
       <label>
