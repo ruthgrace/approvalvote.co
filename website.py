@@ -140,7 +140,7 @@ def votes_by_number_of_candidates(winning_set, candidates):
 
 def sorted_candidate_sets(seats, candidates):
     if seats == 1:
-        sorted_sets = list(sorted(zip([len(candidates[k]) for k in candidates.keys()], candidates.keys()), reverse=True))
+        sorted_sets = list(sorted(zip([len(candidates[k]) for k in candidates.keys()], [(k,) for k in candidates.keys()]), reverse=True))
     else:
         # get each potential winning set
         winning_sets = []
@@ -253,15 +253,33 @@ def poll_results_page(poll_id):
         vote_tally = dict(sorted(vote_tally.items(), key=lambda x: x[1], reverse=True))
         vote_labels = [candidate_text[c] for c in vote_tally.keys()]
         sorted_sets = sorted_candidate_sets(seats, candidates)
-        if seats == 1:
-            winners = f"The winner is <strong>{candidate_text[sorted_sets[0][1]]}</strong>."
-            winning_set = set([sorted_sets[0][1]])
+        # check if there is a tie
+        if len(sorted_sets) > seats and sorted_sets[seats-1][0] == sorted_sets[seats][0]:
+            # extra winners in winning set
+            tie_value = sorted_sets[0][0]
+            tie_winners = set(sorted_sets[0][1])
+            for i in range(1, len(sorted_sets)):
+                if sorted_sets[i][0] == tie_value:
+                    tie_winners = tie_winners.union(set(sorted_sets[i][1]))
+                else:
+                    break
+            winners = "There is a tie. "
+            tie_winners_array = list(tie_winners)
+            if len(tie_winners) == 2:
+                winners += f"<strong>{candidate_text[tie_winners_array[0]]} and {candidate_text[tie_winners_array[1]]}</strong> are tied."
+            else:
+                tie_winners_string = ", ".join([candidate_text[x] for x in tie_winners_array[0:len(tie_winners_array)-1]]) + ", and " + candidate_text[tie_winners_array[-1]]
+                winners += f"<strong>{tie_winners_string}</strong> are tied."
+            winning_set = tie_winners
         else:
             winning_set = set(sorted_sets[0][1])
-            if seats == 2:
-                winners = f"The winners are <strong>{candidate_text[sorted_sets[0][1][0]]} and {candidate_text[sorted_sets[0][1][1]]}</strong>."
+            winners_array = list(winning_set)
+            if seats == 1:
+                winners = f"The winner is <strong>{candidate_text[winners_array[0]]}</strong>."
+            elif seats == 2:
+                winners = f"The winners are <strong>{candidate_text[winners_array[0]]} and {candidate_text[winners_array[1]]}</strong>."
             else:
-                winners_string = ", ".join([candidate_text[x] for x in sorted_sets[0:seats-1][1]]) + " and " + candidate_text[sorted_sets[-1][1]]
+                winners_string = ", ".join([candidate_text[x] for x in winners_array[0:seats-1]]) + ", and " + candidate_text[winners_array[-1]]
                 winners = f"The winners are <strong>{winners_string}</strong>."
         # save results to database
         losing_set = set(candidate_text.keys()) - winning_set
@@ -269,7 +287,8 @@ def poll_results_page(poll_id):
             response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": True, "vote_tally": vote_tally[c]}).execute()
         for c in losing_set:
             response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": False, "vote_tally": vote_tally[c]}).execute()
-        return render_template('poll_results.html.j2', winners=winners, ties="", candidates=candidate_text, seats=seats, poll_id=poll_id, vote_labels=vote_labels, vote_tally=list(vote_tally.values()), title=title, description=description)
+        print(f"winners is {winners}")
+        return render_template('poll_results.html.j2', winners=winners, candidates=candidate_text, seats=seats, poll_id=poll_id, vote_labels=vote_labels, vote_tally=list(vote_tally.values()), title=title, description=description)
     except Exception as err:
         print(traceback.format_exc())
         return type(err).__name__
@@ -296,6 +315,12 @@ def compare_results():
                 winners.append(item["id"])
                 actual_candidates.append(item["option"])
             candidate_text[item["id"]] = item["option"]
+        # remove extra winners in the case of a tie, for results comparison only
+        tie = False
+        if len(winners) > seats:
+            winners = winners[0:seats]
+            actual_candidates = actual_candidates[0:seats]
+            tie = True
         candidates = votes_by_candidate(poll_id, supabase, candidate_ids=list(candidate_text.keys()))
         actual_results = votes_by_number_of_candidates(winners, candidates)
         max_votes = 0
@@ -325,7 +350,7 @@ def compare_results():
         print(f"max votes is {max_votes}")
         return render_template('alternate_results.html.j2', actual_candidates=actual_candidates,
         actual_chart_labels=actual_candidates_text, desired_candidates=list(desired_candidates.values()), 
-        desired_chart_labels=desired_candidates_text, actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes)
+        desired_chart_labels=desired_candidates_text, actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes, tie=tie)
     except Exception as err:
         print(traceback.format_exc())
         return type(err).__name__

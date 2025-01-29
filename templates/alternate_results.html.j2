@@ -7,7 +7,11 @@
 
     <!-- Second Chart Container -->
     <div style="flex: 1;">
-      <h2 class="text-2xl font-bold mb-4">Votes for the actual winners: {{actual_candidates}}</h2>
+      {% if tie == True %}
+        <h2 class="text-2xl font-bold mb-4">Votes for some of the tied winners: {{actual_candidates}}</h2>
+      {% else %}
+        <h2 class="text-2xl font-bold mb-4">Votes for the actual winning result: {{actual_candidates}}</h2>
+      {% endif %}
       <div id="chart2" class="h-64"></div>
     </div>
 

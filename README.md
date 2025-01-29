@@ -140,6 +140,7 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
+* refactor so that single winner and multiple winners are handled the same way
 * voting results page - take into account ties
 * incorporate design
 * add cover image to poll
