@@ -139,8 +139,12 @@ Connect to the server
 flask --app website run --host=0.0.0.0 --debug
 ```
 
+## run tests
+```
+pytest tests/test_integration.py -v
+```
+
 ## to do
-* add tests to make sure no pages are broken
 * incorporate design
 * add cover image to poll
 * revisit domain reputation issue for sending verification code email
