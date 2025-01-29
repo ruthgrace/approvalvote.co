@@ -372,6 +372,11 @@ def new_poll(form_data=None):
         poll_data[DESCRIPTION] = request.form.get("description", "")
         poll_data[CANDIDATES_TEXT] = request.form.get("candidates", "")
         poll_data[SEATS] = int(request.form.get("seats", "0"))
+    print(f"seats is {poll_data[SEATS]}")
+    if poll_data[SEATS] < 1:
+        return f"""
+        <p>Your poll was not created. The number of options that will be selected as winners must be at least 1.</p>
+        """
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
         if not user_exists(poll_data[EMAIL], supabase):
@@ -410,6 +415,6 @@ def new_poll(form_data=None):
     return f"""
     <h2>Poll Created!</h2>
     <p>You entered {len(candidates)} candidate(s): {candidates}</p>
-    <p>Number of options that will be selected: {poll_data[SEATS]}</p>
+    <p>Number of options that will be selected as winners: {poll_data[SEATS]}</p>
     <p>Link for your poll: <a href="https://approvalvote.co/vote/{poll_id}">approvalvote.co/vote/{poll_id}</a></p>
     """

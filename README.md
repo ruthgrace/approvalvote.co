@@ -135,7 +135,7 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* seats should be at least 1
+* show vote counts on results page for each candidate (just keep it simple for now)
 * check how it looks on mobile
 * feature for whether or not a poll requires email verification from voters
 * voting results page - take into account ties
@@ -144,4 +144,3 @@ flask --app website run --host=0.0.0.0 --debug
 * feature for opening and closing polls
 ** consider caching results in results db once poll closes
 * make sure there aren't duplicate options
-* show vote counts on results page for each candidate (just keep it simple for now)
