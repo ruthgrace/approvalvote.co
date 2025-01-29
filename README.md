@@ -104,6 +104,11 @@ sudo systemctl status approvalvote
 sudo journalctl -u approvalvote -f
 ```
 
+#### restart
+```
+sudo systemctl restart approvalvote
+```
+
 #### cursor/vs code doesn't have permission to change files
 
 last time i added myself to the production group (approvalvote_group) i also had to clean up all the vs code and cursor files before logging in via vs code or cursor would have the correct group so i could edit files
@@ -135,11 +140,11 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* poll title should be in poll results page
 * check how it looks on mobile
 * feature for whether or not a poll requires email verification from voters
 * voting results page - take into account ties
 * incorporate design
+* poll title should be in poll results page
 * revisit domain reputation issue for sending verification code email
 * feature for opening and closing polls
 ** consider caching results in results db once poll closes
