@@ -140,13 +140,11 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* refactor so that single winner and multiple winners are handled the same way
-* voting results page - take into account ties
+* add tests to make sure no pages are broken
 * incorporate design
 * add cover image to poll
 * revisit domain reputation issue for sending verification code email
 * feature for opening and closing polls
-** consider caching results in results db once poll closes
 * make sure there aren't duplicate options
 * edit poll
 ** delete poll from database option
