@@ -140,8 +140,7 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## to do
-* check how it looks on mobile
-* feature for whether or not a poll requires email verification from voters
+* make sure that bars in results comparison are different heights when different values
 * voting results page - take into account ties
 * incorporate design
 * poll title should be in poll results page
@@ -149,3 +148,4 @@ flask --app website run --host=0.0.0.0 --debug
 * feature for opening and closing polls
 ** consider caching results in results db once poll closes
 * make sure there aren't duplicate options
+* delete poll from database option

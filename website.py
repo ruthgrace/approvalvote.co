@@ -20,6 +20,7 @@ CANDIDATES_TEXT = "candidates_text"
 SEATS = "seats"
 NEW_POLL = "new_poll"
 NEW_VOTE = "new_vote"
+EMAIL_VERIFICATION = "email_verification"
 
 SELECTED = "selected"
 ID = "id"
@@ -175,7 +176,6 @@ def poll_page(poll_id):
 
 @app.route("/votesubmit", methods=["POST"])
 def new_vote(form_data=None):
-    print("new vote")
     poll_data = {}
     if form_data is not None:
         poll_data = form_data
@@ -183,23 +183,28 @@ def new_vote(form_data=None):
         poll_data[SELECTED] = request.form.getlist("poll_option")
         poll_data[ID] = request.form.get("poll_id")
         poll_data[EMAIL] = request.form.get("user_email")
-    # TODO: update this to check if poll requires email verification
-    if poll_data[EMAIL] == "":
-        return f"""
-        <p>Your vote was not counted. Please enter an email address.</p>
-        """
     if len(poll_data[SELECTED]) == 0:
         return f"""
         <p>Your vote was not counted. Please select at least one option.</p>
         """
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
-        if not user_exists(poll_data[EMAIL], supabase):
+        response = supabase.table("Polls").select("email_verification").eq("id", poll_data[ID]).single().execute()
+        email_verification = response.data['email_verification']
+        if email_verification and poll_data[EMAIL] == "":
+            return f"""
+            <p>Your vote was not counted. Please enter an email address.</p>
+            """
+        if email_verification and not user_exists(poll_data[EMAIL], supabase):
             # print(f"user does not exist based on email {poll_data[EMAIL]}")
             update_form_data(poll_data, supabase)
             return render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_VOTE)
-        user_id = get_user_id(poll_data[EMAIL], supabase)
-        if EMAIL not in session:
+        if poll_data[EMAIL] == "":
+            response = supabase.table("Users").insert({}).execute()
+            user_id = response.data[0]['id']
+        else:
+            user_id = get_user_id(poll_data[EMAIL], supabase)
+        if email_verification and EMAIL not in session:
             update_form_data(poll_data, supabase)
             send_verification_email(poll_data[EMAIL])
             return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_VOTE)
@@ -224,8 +229,9 @@ def new_vote(form_data=None):
         <h2>Vote submitted!</h2>
         <p>You voted for: {", ".join(option_names[:-1])}, and {option_names[-1]}</p>
         """
-    except Exception:
+    except Exception as err:
         print(traceback.format_exc())
+        return type(err).__name__
 
 @app.route("/results/<int:poll_id>")
 def poll_results_page(poll_id):
@@ -377,7 +383,7 @@ def new_poll(form_data=None):
         poll_data[DESCRIPTION] = request.form.get("description", "")
         poll_data[CANDIDATES_TEXT] = request.form.get("candidates", "")
         poll_data[SEATS] = int(request.form.get("seats", "0"))
-    print(f"seats is {poll_data[SEATS]}")
+        poll_data[EMAIL_VERIFICATION] = bool(request.form.get("email_verification", ""))
     if poll_data[SEATS] < 1:
         return f"""
         <p>Your poll was not created. The number of options that will be selected as winners must be at least 1.</p>
@@ -388,7 +394,6 @@ def new_poll(form_data=None):
             print(f"user does not exist based on email {poll_data[EMAIL]}")
             update_form_data(poll_data, supabase)
             return render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_POLL)
-        print("getting user id")
         user_id = get_user_id(poll_data[EMAIL], supabase)
         if EMAIL not in session:
             update_form_data(poll_data, supabase)
@@ -396,7 +401,7 @@ def new_poll(form_data=None):
             return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL)
         response = (
             supabase.table("Polls")
-            .insert({"title": poll_data[TITLE], "description": poll_data[DESCRIPTION], "cover_photo": poll_data[COVER_URL], "seats": poll_data[SEATS]})
+            .insert({"title": poll_data[TITLE], "description": poll_data[DESCRIPTION], "cover_photo": poll_data[COVER_URL], "seats": poll_data[SEATS], "email_verification": poll_data[EMAIL_VERIFICATION]})
             .execute()
         )
         # print(f"insert poll response: {response}")
