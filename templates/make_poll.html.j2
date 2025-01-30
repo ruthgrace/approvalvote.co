@@ -1,13 +1,6 @@
-<html>
+{% extends "base.html.j2" %}
 
-<head>
-  <title>Approval Voting</title>
-  <!-- Include htmx via CDN -->
-  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-</head>
-
-<body>
-
+{% block content %}
   <h1>Make a Poll</h1>
 
   <form hx-post="/pollsubmit" hx-target="#response" hx-swap="innerHTML">
@@ -50,6 +43,4 @@
     <button type="submit">Create Poll</button>
   </form>
   <div id="response"></div>
-</body>
-
-</html>
+{% endblock %}

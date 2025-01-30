@@ -1,19 +1,6 @@
-<html>
+{% extends "base.html.j2" %}
 
-<head>
-  <title>Approval Voting</title>
-  <!-- Include htmx via CDN -->
-  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-  <!-- Tailwind CSS via CDN -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.1/dist/tailwind.min.css"
-    rel="stylesheet"
-  />
-  <!-- ApexCharts CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-</head>
-
-<body>
+{% block content %}
   <h1>{{title}}</h1>
   <p>{{description}}</p>
   <p>Poll results: {{winners}}</p>
@@ -70,6 +57,4 @@
     var chart = new ApexCharts(document.querySelector('#chart'), options);
     chart.render();
   </script>
-</body>
-
-</html>
+{% endblock %}

@@ -1,12 +1,6 @@
-<html>
+{% extends "base.html.j2" %}
 
-<head>
-  <title>Approval Voting</title>
-  <!-- Include htmx via CDN -->
-  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-</head>
-
-<body>
+{% block content %}
   <div>
     <h1>{{title}}</h1>
     <p>{{description}}</p>
@@ -31,6 +25,4 @@
     <p>There will be {{seats}} options selected after the poll closes.</p>
     <div id="response"></div>
   </div>
-</body>
-
-</html>
+{% endblock %}
