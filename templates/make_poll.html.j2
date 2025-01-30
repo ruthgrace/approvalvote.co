@@ -1,14 +1,12 @@
 {% extends "base.html.j2" %}
 
 {% block content %}
+<div class="mt-8">
   <form hx-post="/pollsubmit" hx-target="#response" hx-swap="innerHTML">
 
-    <input type="text" id="title" name="title" placeholder="Question" class="text-2lg" required />
+    <input type="text" id="title" name="title" placeholder="Question" class="text-3xl placeholder:text-gray-500 font-medium mb-[1rem]" required />
     <br />
-    <br />
-    <label for="description">Optional: What is the description of your poll?</label>
-    <br />
-    <textarea id="description" name="description" cols="50"></textarea>
+    <textarea id="description" name="description" cols="50" placeholder="Description (optional)" class="text-lg"></textarea>
     <br />
     <br />
     <label for="cover_url">Optional: URL for a cover photo (you can upload a file to imgur and put the link
@@ -40,4 +38,5 @@
     <button type="submit">Create Poll</button>
   </form>
   <div id="response"></div>
+</div>
 {% endblock %}
