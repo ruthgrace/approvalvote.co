@@ -1,11 +1,19 @@
 {% extends "base.html.j2" %}
 
 {% block content %}
-  <h1>Optimize group decisions.</h1>
-  <p>You can't please everyone, but with approval voting you can get close!</p>
-
-  <a href="/makepoll">
-    <button type="button">Make a poll</button>
-  </a>
-
+<div class="grid grid-cols-3 gap-4">
+  <div class="p-4">
+    <h1 class="text-6xl font-medium">Optimize group decisions</h1>
+  </div>
+  <div class="p-4">
+    <p class="text-2xl">You can't please everyone, but with approval voting you can get close!</p>
+    <br>
+    <a href="/makepoll">
+      <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-4 rounded-full transition duration-150 ease-in-out shadow-md hover:shadow-lg">
+        Make a poll
+      </button>
+    </a>
+  </div>
+</div>
+<img src="{{ url_for('static', filename='high-five-photo.jpg') }}" alt="Description" class="w-full rounded-lg">
 {% endblock %}

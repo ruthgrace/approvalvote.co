@@ -1,17 +1,9 @@
 {% extends "base.html.j2" %}
 
 {% block content %}
-  <h1>Make a Poll</h1>
-
   <form hx-post="/pollsubmit" hx-target="#response" hx-swap="innerHTML">
-    <label for="email">What is your email address?</label>
-    <br />
-    <input type="text" id="email" name="email" required />
-    <br />
-    <br />
-    <label for="title">What is the title of your poll?</label>
-    <br />
-    <input type="text" id="title" name="title" required />
+
+    <input type="text" id="title" name="title" placeholder="Question" class="text-2lg" required />
     <br />
     <br />
     <label for="description">Optional: What is the description of your poll?</label>
@@ -38,6 +30,11 @@
     <label>
       <input type="checkbox" name="email_verification" value="True" /> Require voters to verify their email address
     </label>
+    <br />
+    <br />
+      <label for="email">What is your email address?</label>
+    <br />
+    <input type="text" id="email" name="email" required />
     <br />
     <br />
     <button type="submit">Create Poll</button>
