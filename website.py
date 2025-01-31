@@ -16,7 +16,7 @@ EMAIL = "email"
 TITLE = "title"
 COVER_URL = "cover_url"
 DESCRIPTION = "description"
-CANDIDATES_TEXT = "candidates_text"
+CANDIDATES = "candidates"
 SEATS = "seats"
 NEW_POLL = "new_poll"
 NEW_VOTE = "new_vote"
@@ -410,7 +410,7 @@ def remove_poll_option():
 def add_poll_option():
     return """
           <div class="relative mt-3">
-            <input type="text" placeholder="Option" class="py-2 w-full pr-10 placeholder:text-lg bg-gray-50 focus:outline-none">
+            <input type="text" name="option" placeholder="Option" autofocus class="py-2 w-full pr-10 placeholder:text-lg bg-gray-50 focus:outline-none">
             <button 
               class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-300 text-xl hover:text-gray-600"
               hx-delete="/remove-option"
@@ -431,7 +431,7 @@ def new_poll(form_data=None):
         poll_data[TITLE] = request.form.get("title")
         poll_data[COVER_URL] = request.form.get("cover_url", "")
         poll_data[DESCRIPTION] = request.form.get("description", "")
-        poll_data[CANDIDATES_TEXT] = request.form.get("candidates", "")
+        poll_data[CANDIDATES] = request.form.getlist("option")
         poll_data[SEATS] = int(request.form.get("seats", "0"))
         poll_data[EMAIL_VERIFICATION] = bool(request.form.get("email_verification", ""))
     if poll_data[SEATS] < 1:
@@ -462,8 +462,7 @@ def new_poll(form_data=None):
             .execute()
         )
         # print(f"insert poll admin response: {response}")
-        candidates = poll_data[CANDIDATES_TEXT].splitlines()
-        for candidate in candidates:
+        for candidate in poll_data[CANDIDATES]:
             response = (
                 supabase.table("PollOptions")
                 .insert({"option": candidate, "poll": poll_id})
@@ -474,7 +473,7 @@ def new_poll(form_data=None):
         print(traceback.format_exc())
     return f"""
     <h2>Poll Created!</h2>
-    <p>You entered {len(candidates)} candidate(s): {candidates}</p>
+    <p>You entered {len(poll_data[CANDIDATES])} candidate(s): {poll_data[CANDIDATES]}</p>
     <p>Number of options that will be selected as winners: {poll_data[SEATS]}</p>
     <p>Link for your poll: <a href="https://approvalvote.co/vote/{poll_id}">approvalvote.co/vote/{poll_id}</a></p>
     <p>When everyone is done voting, you can check the results here: <a href="https://approvalvote.co/results/{poll_id}">approvalvote.co/results/{poll_id}</a></p>
