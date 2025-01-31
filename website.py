@@ -402,6 +402,10 @@ def user_verification():
         print(f"trying to run new poll with form_data {form_data}")
         return new_poll(form_data=form_data)
 
+@app.route("/remove-option", methods=["DELETE"])
+def remove_poll_option():
+    return ""
+
 @app.route("/pollsubmit", methods=["POST"])
 def new_poll(form_data=None):
     poll_data = {}
