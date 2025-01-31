@@ -146,9 +146,12 @@ pytest tests/test_integration.py -v
 
 ## to do
 * incorporate design
-** add design to right half of poll page
 ** make create poll confirmation replace the form
+** make it so you can upload a cover photo instead of the url to supabase storage
 ** make create poll button blue only when required fields are filled
+** style poll submit confirmation
+** style poll page
+** style results page
 * add cover image to poll
 * revisit domain reputation issue for sending verification code email
 * feature for opening and closing polls
