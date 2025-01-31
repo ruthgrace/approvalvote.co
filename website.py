@@ -406,6 +406,21 @@ def user_verification():
 def remove_poll_option():
     return ""
 
+@app.route("/add-option", methods=["POST"])
+def add_poll_option():
+    return """
+          <div class="relative mt-3">
+            <input type="text" placeholder="Option" class="py-2 w-full pr-10 placeholder:text-lg bg-gray-50 focus:outline-none">
+            <button 
+              class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-300 text-xl hover:text-gray-600"
+              hx-delete="/remove-option"
+              hx-target="closest div"
+              hx-swap="outerHTML"
+            >✕</button>
+          <hr class="mt-3">
+          </div>
+"""
+
 @app.route("/pollsubmit", methods=["POST"])
 def new_poll(form_data=None):
     poll_data = {}
