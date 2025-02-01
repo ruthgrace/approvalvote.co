@@ -1,8 +1,9 @@
 {% extends "base.html.j2" %}
 
 {% block content %}
-<div class="mt-8">
-  <form hx-post="/pollsubmit" hx-target="#response" hx-swap="innerHTML">
+<div id="poll-form-container" class="mt-8">
+  <form hx-post="/pollsubmit" hx-target="closest div" hx-swap="outerHTML" 
+  hx-on::before-request="console.log('Target exists:', document.querySelector('#poll-form-container'))">
     <div class="grid grid-cols-8 gap-4 mt-8">
       <div class="col-span-5">
         <input type="text" id="title" name="title" placeholder="Question" class="text-3xl placeholder:text-gray-500 font-medium mb-[1rem] w-full" required />
@@ -16,6 +17,7 @@
             </button>
           </a>
         </div>
+        <div id="error-message-div" class="flex w-full"></div>
       </div>
       <div class="col-span-5">
         <div class="bg-gray-50 rounded-3xl p-8 border border-gray-300">
@@ -75,8 +77,8 @@
                 type="number" 
                 id="seats" 
                 name="seats" 
-                value="0" 
-                min="0"
+                value="1" 
+                min="1"
                 class="mx-2 w-16 text-center border border-gray-300 rounded-full"
                 required 
               />
@@ -111,6 +113,5 @@
       </div>
     </div>
   </form>
-  <div id="response"></div>
 </div>
 {% endblock %}

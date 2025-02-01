@@ -1,0 +1,36 @@
+<div id="poll-form-container" class="mt-8">
+  <div class="space-y-6">
+    <div class="flex items-center gap-3">
+      <div class="bg-blue-600 rounded-full p-2 w-8 h-8 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="white" class="w-5 h-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      </div>
+      <h2 class="text-2xl font-medium">Poll Created</h2>
+    </div>
+    <p>Share your poll!</p>
+    <div class="flex items-center gap-4">
+      <div class="bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
+        approvalvote.co/vote/{{ poll_id }}
+      </div>
+      <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 rounded-full transition duration-150 ease-in-out flex items-center gap-2" onclick="navigator.clipboard.writeText('https://approvalvote.co/vote/{{ poll_id }}')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+        </svg>
+        Copy
+      </button>
+    </div>
+    <p>When everyone is done voting, you can check the results here:</p>
+    <div class="flex items-center gap-4">
+      <div class="bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
+        approvalvote.co/results/{{ poll_id }}
+      </div>
+      <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 rounded-full transition duration-150 ease-in-out flex items-center gap-2" onclick="navigator.clipboard.writeText('https://approvalvote.co/results/{{ poll_id }}')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+        </svg>
+        Copy
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request, session, make_response
 from supabase import create_client, Client
 
 import constants
@@ -374,7 +374,9 @@ def new_user():
         user_id = response.data[0]['id']
         print(f"user id is {user_id}")
         send_verification_email(email)
-        return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function)
+        response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function))
+        response.headers["HX-Retarget"] = "#error-message-div"
+        return response
     except Exception:
         print(traceback.format_exc())
 
@@ -434,21 +436,20 @@ def new_poll(form_data=None):
         poll_data[CANDIDATES] = request.form.getlist("option")
         poll_data[SEATS] = int(request.form.get("seats", "0"))
         poll_data[EMAIL_VERIFICATION] = bool(request.form.get("email_verification", ""))
-    if poll_data[SEATS] < 1:
-        return f"""
-        <p>Your poll was not created. The number of options that will be selected as winners must be at least 1.</p>
-        """
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
         if not user_exists(poll_data[EMAIL], supabase):
-            print(f"user does not exist based on email {poll_data[EMAIL]}")
             update_form_data(poll_data, supabase)
-            return render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_POLL)
+            response = make_response(render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_POLL))
+            response.headers["HX-Retarget"] = "#error-message-div"
+            return response
         user_id = get_user_id(poll_data[EMAIL], supabase)
-        if EMAIL not in session:
+        if EMAIL not in session or session[EMAIL] != poll_data[EMAIL]:
             update_form_data(poll_data, supabase)
             send_verification_email(poll_data[EMAIL])
-            return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL)
+            response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL))
+            response.headers["HX-Retarget"] = "#error-message-div"
+            return response
         response = (
             supabase.table("Polls")
             .insert({"title": poll_data[TITLE], "description": poll_data[DESCRIPTION], "cover_photo": poll_data[COVER_URL], "seats": poll_data[SEATS], "email_verification": poll_data[EMAIL_VERIFICATION]})
@@ -469,12 +470,9 @@ def new_poll(form_data=None):
                 .execute()
             )
             # print(f"insert candidate {candidate} response: {response}")
-    except Exception:
+        return render_template("make_poll_success.html.j2", poll_id=poll_id)
+    except Exception as err:
         print(traceback.format_exc())
-    return f"""
-    <h2>Poll Created!</h2>
-    <p>You entered {len(poll_data[CANDIDATES])} candidate(s): {poll_data[CANDIDATES]}</p>
-    <p>Number of options that will be selected as winners: {poll_data[SEATS]}</p>
-    <p>Link for your poll: <a href="https://approvalvote.co/vote/{poll_id}">approvalvote.co/vote/{poll_id}</a></p>
-    <p>When everyone is done voting, you can check the results here: <a href="https://approvalvote.co/results/{poll_id}">approvalvote.co/results/{poll_id}</a></p>
-    """
+        response = make_response(f"Error: {err}")
+        response.headers["HX-Retarget"] = "#error-message-div"
+        return response
