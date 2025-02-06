@@ -166,15 +166,16 @@ def poll_page(poll_id):
     seats = 0
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
-        response = supabase.table("Polls").select("seats", "title", "description").eq("id", poll_id).single().execute()
+        response = supabase.table("Polls").select("seats", "title", "description", "cover_photo").eq("id", poll_id).single().execute()
         seats = response.data['seats']
         title = response.data['title']
         description = response.data['description'] or "Vote on this poll!"
+        thumbnail_url = response.data['cover_photo'] or ""
         response = supabase.table("PollOptions").select("id, option").eq("poll", poll_id).execute()
         candidates = [(row['id'], row['option']) for row in response.data]
     except Exception:
         print(traceback.format_exc())
-    return render_template('poll.html.j2', seats=seats, candidates=candidates, poll_id=poll_id, title=title, description=description)
+    return render_template('poll.html.j2', seats=seats, candidates=candidates, poll_id=poll_id, page_title=title, page_description=description, thumbnail_url=thumbnail_url)
 
 @app.route("/votesubmit", methods=["POST"])
 def new_vote(form_data=None):

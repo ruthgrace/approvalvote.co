@@ -146,10 +146,9 @@ pytest tests/test_integration.py -v
 
 ## to do
 * incorporate design
-** style poll page
 ** style results page
 * tailwind production
-* add cover image to poll
+* make require email verification checkbox work for poll page
 * revisit domain reputation issue for sending verification code email
 * feature for opening and closing polls
 * make sure there aren't duplicate options

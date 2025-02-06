@@ -1,28 +1,40 @@
 {% extends "base.html.j2" %}
 
 {% block content %}
-  <div>
-    <h1>{{title}}</h1>
-    <p>{{description}}</p>
-    <form hx-post="/votesubmit" hx-target="#response" hx-swap="innerHTML">
-      <input type="hidden" name="poll_id" value="{{ poll_id }}" />
-      <label>
-        Your email (required to edit your vote):
-        <input type="text" name="user_email" />
-      </label>
-      <br /><br />
-      Select all options that you approve of:
-      <br />
-      {% for id, candidate in candidates %}
-      <label>
-        <input type="checkbox" name="poll_option" value="{{id}}|{{candidate}}" /> {{candidate}}
-      </label>
-      <br />
-      {% endfor %}
-      <br />
-      <button type="submit">Submit Vote</button>
+  <div class="space-y-4">
+    <h1 class="text-3xl font-medium">{{page_title}}</h1>
+    <p class="text-lg">{{page_description}}</p>
+    {% if thumbnail_url != "" %}
+      <div class="flex flex-wrap md:w-1/2 items-center">
+        <div class="w-full aspect-[1200/630] rounded-xl overflow-hidden">
+          <img src="{{ thumbnail_url }}" alt="Thumbnail" class="w-full h-full rounded-3xl object-cover">
+        </div>
+      </div>
+    {% endif %}
+    <div class="bg-gray-50 rounded-3xl p-8 border border-gray-300">
+      <form hx-post="/votesubmit" hx-target="#response" hx-swap="innerHTML">
+        <input type="hidden" name="poll_id" value="{{ poll_id }}" />
+        Select all options that you approve of.
+        {% if seats > 1 %}
+          There will be {{seats}} options selected after the poll closes.
+        {% else %}
+          There will be 1 option selected after the poll closes.
+        {% endif %}
+        <br />
+        {% for id, candidate in candidates %}
+        <label>
+          <input type="checkbox" name="poll_option" value="{{id}}|{{candidate}}" /> {{candidate}}
+        </label>
+        <br />
+        {% endfor %}
+        <br />
+        <label>
+          Your email (required to edit your vote):
+          <input type="text" name="user_email" />
+        </label>
+      </div>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-4 rounded-full transition duration-150 ease-in-out">Submit Vote</button>
     </form>
-    <p>There will be {{seats}} options selected after the poll closes.</p>
     <div id="response"></div>
   </div>
 {% endblock %}
