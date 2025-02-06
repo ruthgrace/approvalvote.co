@@ -412,7 +412,7 @@ def remove_poll_option():
 def add_poll_option():
     return """
           <div class="relative mt-3">
-            <input type="text" name="option" placeholder="Option" autofocus class="py-2 w-full pr-10 placeholder:text-lg bg-gray-50 focus:outline-none">
+            <input type="text" name="option" placeholder="Option" autofocus class="py-2 w-full pr-10 placeholder:text-lg bg-gray-50 focus:outline-none" required>
             <button 
               class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-300 text-xl hover:text-gray-600"
               hx-delete="/remove-option"
