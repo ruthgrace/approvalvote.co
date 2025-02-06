@@ -146,7 +146,6 @@ pytest tests/test_integration.py -v
 
 ## to do
 * incorporate design
-** make create poll button blue only when required fields are filled
 ** style poll page
 ** style results page
 * tailwind production
