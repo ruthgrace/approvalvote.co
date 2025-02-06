@@ -6,9 +6,8 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
       </div>
-      <h2 class="text-2xl font-medium">Poll Created</h2>
+      <h2 class="text-2xl font-medium">Poll is ready to be shared!</h2>
     </div>
-    <p>Share your poll!</p>
     <div class="flex items-center gap-4">
       <div class="bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
         approvalvote.co/vote/{{ poll_id }}
@@ -20,7 +19,17 @@
         Copy
       </button>
     </div>
-    <p>When everyone is done voting, you can check the results here:</p>
+    <div class="flex flex-wrap md:w-1/2 items-center gap-4 bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
+      <div class="w-full aspect-[1200/630] rounded-xl overflow-hidden">
+        <img src="{{ thumbnail_preview_url }}" alt="Thumbnail" class="w-full rounded-3xl object-cover">
+      </div>
+      <div class="flex flex-col gap-2">
+        <p class="font-bold">{{preview_title}}</p>
+        <p class="text-sm text-gray-500">{{preview_description}}</p>
+        <p class="text-sm text-gray-500">approvalvote.co</p>
+      </div>
+    </div>
+    <h2 class="text-2xl font-medium">Poll results page</h2>
     <div class="flex items-center gap-4">
       <div class="bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
         approvalvote.co/results/{{ poll_id }}

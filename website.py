@@ -470,7 +470,7 @@ def new_poll(form_data=None):
                 .execute()
             )
             # print(f"insert candidate {candidate} response: {response}")
-        return render_template("make_poll_success.html.j2", poll_id=poll_id)
+        return render_template("make_poll_success.html.j2", poll_id=poll_id, preview_title=poll_data[TITLE], preview_description=poll_data[DESCRIPTION], thumbnail_preview_url=poll_data[COVER_URL])
     except Exception as err:
         print(traceback.format_exc())
         response = make_response(f"Error: {err}")

@@ -146,14 +146,11 @@ pytest tests/test_integration.py -v
 
 ## to do
 * incorporate design
-** tailwind production
-** fix bug where only first option is getting into database
-** fix bug where verification is getting asked each time for ruthgracewong
-** make it so you can upload a cover photo instead of the url to supabase storage
+** confirm copy button works
 ** make create poll button blue only when required fields are filled
-** style poll submit confirmation
 ** style poll page
 ** style results page
+* tailwind production
 * add cover image to poll
 * revisit domain reputation issue for sending verification code email
 * feature for opening and closing polls

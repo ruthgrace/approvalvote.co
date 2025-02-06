@@ -17,7 +17,7 @@ def test_home_page(client):
     """Test if home page loads"""
     rv = client.get('/')
     assert rv.status_code == 200
-    assert b'Optimize group decisions.' in rv.data
+    assert b'Optimize group decisions' in rv.data
     assert b'You can\'t please everyone' in rv.data
 
 def test_all_routes(client):
