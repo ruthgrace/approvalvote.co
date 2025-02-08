@@ -40,6 +40,8 @@ def make_poll_page():
 
 def get_user_id(email, supabase):
         response = supabase.table("Users").select("id").eq("email", email).execute()
+        if len(response.data) == 0:
+            return None
         user_id = response.data[0]['id']
         return user_id
 
@@ -187,9 +189,11 @@ def new_vote(form_data=None):
         poll_data[ID] = request.form.get("poll_id")
         poll_data[EMAIL] = request.form.get("user_email")
     if len(poll_data[SELECTED]) == 0:
-        return f"""
+        response = make_response(f"""
         <p>Your vote was not counted. Please select at least one option.</p>
-        """
+        """)
+        response.headers["HX-Retarget"] = "#error-message-div"
+        return response
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
         response = supabase.table("Polls").select("email_verification").eq("id", poll_data[ID]).single().execute()
@@ -201,12 +205,20 @@ def new_vote(form_data=None):
         if email_verification and not user_exists(poll_data[EMAIL], supabase):
             # print(f"user does not exist based on email {poll_data[EMAIL]}")
             update_form_data(poll_data, supabase)
-            return render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_VOTE)
+            response = make_response(render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_VOTE))
+            response.headers["HX-Retarget"] = "#error-message-div"
+            return response
         if poll_data[EMAIL] == "":
             response = supabase.table("Users").insert({}).execute()
             user_id = response.data[0]['id']
         else:
-            user_id = get_user_id(poll_data[EMAIL], supabase)
+            if not user_exists(poll_data[EMAIL], supabase):
+                update_form_data(poll_data, supabase)
+                response = make_response(render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_VOTE))
+                response.headers["HX-Retarget"] = "#error-message-div"
+                return response
+            else:
+                user_id = get_user_id(poll_data[EMAIL], supabase)
         if email_verification and EMAIL not in session:
             update_form_data(poll_data, supabase)
             send_verification_email(poll_data[EMAIL])
@@ -288,7 +300,6 @@ def poll_results_page(poll_id):
             response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": True, "vote_tally": vote_tally[c]}).execute()
         for c in losing_set:
             response = supabase.table("PollOptions").upsert({"id": c, "option": candidate_text[c], "poll": poll_id, "winner": False, "vote_tally": vote_tally[c]}).execute()
-        print(f"winners is {winners}")
         return render_template('poll_results.html.j2', winners=winners, candidates=candidate_text, seats=seats, poll_id=poll_id, vote_labels=vote_labels, vote_tally=list(vote_tally.values()), title=title, description=description)
     except Exception as err:
         print(traceback.format_exc())
@@ -345,10 +356,6 @@ def compare_results():
             for i in range(len(actual_candidates)):
                 actual_candidates_text.append(f"Votes for {i+1} candidates in this set")
                 desired_candidates_text.append(f"Votes for {i+1} candidates in this set")
-        print(f"actual candidates is {actual_candidates}, desired candidates is {desired_candidates}")
-        print(f"actual candidates text is {actual_candidates_text}, desired candidates text is {desired_candidates_text}")
-        print(f"actual vote tally is {actual_vote_tally}, desired vote tally is {desired_vote_tally}")
-        print(f"max votes is {max_votes}")
         return render_template('alternate_results.html.j2', actual_candidates=actual_candidates,
         actual_chart_labels=actual_candidates_text, desired_candidates=list(desired_candidates.values()), 
         desired_chart_labels=desired_candidates_text, actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes, tie=tie)

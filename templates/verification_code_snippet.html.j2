@@ -1,4 +1,8 @@
-<form hx-post="/verification" hx-target="#poll-form-container" hx-swap="outerHTML">
+{% if origin_function == "new_poll" %}
+  <form hx-post="/verification" hx-target="#poll-form-container" hx-swap="outerHTML">
+{% else %}
+  <form hx-post="/verification" hx-target="#response" hx-swap="innerHTML">
+{% endif %}
   <input type="hidden" name="origin_function" value="{{ origin_function }}" />
   <input type="hidden" name="user_id" value="{{ user_id }}" />
   <p>A verification code has been sent to your email. Please enter it below:</p>

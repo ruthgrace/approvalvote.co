@@ -1,4 +1,4 @@
-<form hx-post="/new_user" hx-target="#new_user_response" hx-swap="innerHTML">
+<form hx-post="/new_user" hx-target="#error-message-div" hx-swap="innerHTML">
   <input type="hidden" name="email" value="{{ email }}" />
   <input type="hidden" name="origin_function" value="{{ origin_function }}" />
   <p>Based on your email address, you do not have an account with us.</p>
@@ -9,4 +9,3 @@
     Send verification code to email
   </button>
 </form>
-<div id="new_user_response"></div>

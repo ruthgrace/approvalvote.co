@@ -148,7 +148,9 @@ pytest tests/test_integration.py -v
 * tailwind production
 * make require email verification checkbox work for poll page
 * revisit domain reputation issue for sending verification code email
+* unit testing for existing features
 * feature for opening and closing polls
 * make sure there aren't duplicate options
 * edit poll
 ** delete poll from database option
+** view voters for a poll (but maybe hide what they voted for)
