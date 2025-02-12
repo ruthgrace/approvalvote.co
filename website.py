@@ -384,6 +384,7 @@ def new_user():
         send_verification_email(email)
         response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function))
         response.headers["HX-Retarget"] = "#error-message-div"
+        response.headers["HX-Swap"] = "innerHTML"
         return response
     except Exception:
         print(traceback.format_exc())
@@ -450,6 +451,7 @@ def new_poll(form_data=None):
             update_form_data(poll_data, supabase)
             response = make_response(render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_POLL))
             response.headers["HX-Retarget"] = "#error-message-div"
+            response.headers["HX-Swap"] = "innerHTML"
             return response
         user_id = get_user_id(poll_data[EMAIL], supabase)
         if EMAIL not in session or session[EMAIL] != poll_data[EMAIL]:
@@ -457,6 +459,7 @@ def new_poll(form_data=None):
             send_verification_email(poll_data[EMAIL])
             response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL))
             response.headers["HX-Retarget"] = "#error-message-div"
+            response.headers["HX-Swap"] = "innerHTML"
             return response
         response = (
             supabase.table("Polls")

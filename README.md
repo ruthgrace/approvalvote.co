@@ -146,7 +146,6 @@ pytest tests/test_integration.py -v
 
 ## to do
 * tailwind production
-* make require email verification checkbox work for poll page
 * revisit domain reputation issue for sending verification code email
 * unit testing for existing features
 * feature for opening and closing polls
