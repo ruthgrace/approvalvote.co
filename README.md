@@ -149,7 +149,7 @@ pytest tests/test_integration.py -v
 
 ## to do
 * tailwind production
-* revisit domain reputation issue for sending verification code email
+* revisit domain reputation issue for sending verification code email - need to switch to google suite instead of namecheap private email (and update dns records)
 * unit testing for existing features
 * feature for opening and closing polls
 * make sure there aren't duplicate options
