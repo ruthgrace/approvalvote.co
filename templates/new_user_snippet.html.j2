@@ -1,11 +1,13 @@
-<form hx-post="/new_user" hx-target="closest div" hx-swap="innerHTML">
-  <input type="hidden" name="email" value="{{ email }}" />
-  <input type="hidden" name="origin_function" value="{{ origin_function }}" />
-  <p>Based on your email address, you do not have an account with us.</p>
-  <p>Please register:</p>
-  <input type="text" id="full_name" name="full_name" placeholder="Full name" class="text-lg w-full mt-2" required />
-  <input type="text" id="preferred_name" name="preferred_name" placeholder="Preferred name if different from first name" class="text-lg w-full mt-2" />
-  <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-full transition duration-150 ease-in-out mt-2">
-    Send verification code to email
-  </button>
-</form>
+<div id="error-message-div" class="flex w-full">
+  <form hx-post="/new_user">
+    <input type="hidden" name="email" value="{{ email }}" />
+    <input type="hidden" name="origin_function" value="{{ origin_function }}" />
+    <p>Based on your email address, you do not have an account with us.</p>
+    <p>Please register:</p>
+    <input type="text" id="full_name" name="full_name" placeholder="Full name" class="text-lg w-full mt-2" required />
+    <input type="text" id="preferred_name" name="preferred_name" placeholder="Preferred name if different from first name" class="text-lg w-full mt-2" />
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-full transition duration-150 ease-in-out mt-2">
+      Send verification code to email
+    </button>
+  </form>
+</div>
