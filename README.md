@@ -91,6 +91,9 @@ sudo systemctl enable approvalvote
 sudo systemctl start approvalvote
 sudo systemctl status approvalvote
 ```
+### DNS
+
+don't forget to make DMARC, DKIM, SPF, and MX records so that email verification works
 
 ### troubleshooting
 
