@@ -354,8 +354,12 @@ def compare_results():
             desired_candidates_text.append(list(desired_candidates.values())[0])
         else:
             for i in range(len(actual_candidates)):
-                actual_candidates_text.append(f"Votes for {i+1} candidates in this set")
-                desired_candidates_text.append(f"Votes for {i+1} candidates in this set")
+                if i == 0:
+                    actual_candidates_text.append(f"Votes for {i+1} candidate in this set")
+                    desired_candidates_text.append(f"Votes for {i+1} candidate in this set")
+                else:
+                    actual_candidates_text.append(f"Votes for {i+1} candidates in this set")
+                    desired_candidates_text.append(f"Votes for {i+1} candidates in this set")
         return render_template('alternate_results.html.j2', actual_candidates=actual_candidates,
         actual_chart_labels=actual_candidates_text, desired_candidates=list(desired_candidates.values()), 
         desired_chart_labels=desired_candidates_text, actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes, tie=tie)
