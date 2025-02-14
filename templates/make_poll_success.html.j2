@@ -10,7 +10,7 @@
     </div>
     <div class="flex items-center gap-4">
       <div class="bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
-        approvalvote.co/vote/{{ poll_id }}
+        https://approvalvote.co/vote/{{ poll_id }}
       </div>
       <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 rounded-full transition duration-150 ease-in-out flex items-center gap-2" onclick="navigator.clipboard.writeText('https://approvalvote.co/vote/{{ poll_id }}')">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
@@ -24,20 +24,22 @@
     {% else %}
       {% set image_url = "https://approvalvote.co/static/high-five-photo.jpg" %}
     {% endif %}
-      <div class="flex flex-wrap md:w-1/2 items-center gap-2 bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
-        <div class="w-full aspect-[1200/630] rounded-xl overflow-hidden">
-          <img src="{{ image_url }}" alt="Thumbnail" class="w-full h-full rounded-3xl object-cover">
+      <a href="https://approvalvote.co/vote/{{ poll_id }}">
+        <div class="flex flex-wrap md:w-1/2 items-center gap-2 bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
+          <div class="w-full aspect-[1200/630] rounded-xl overflow-hidden">
+            <img src="{{ image_url }}" alt="Thumbnail" class="w-full h-full rounded-3xl object-cover">
+          </div>
+          <div class="flex flex-col gap-2">
+            <p class="font-bold">{{preview_title}}</p>
+            <p class="text-sm text-gray-500">{{preview_description}}</p>
+            <p class="text-sm text-gray-500">approvalvote.co</p>
+          </div>
         </div>
-        <div class="flex flex-col gap-2">
-          <p class="font-bold">{{preview_title}}</p>
-          <p class="text-sm text-gray-500">{{preview_description}}</p>
-          <p class="text-sm text-gray-500">approvalvote.co</p>
-        </div>
-      </div>
+      </a>
     <h2 class="text-2xl font-medium">Poll results page</h2>
     <div class="flex items-center gap-4">
       <div class="bg-gray-50 rounded-3xl py-3 px-4 border border-gray-300">
-        approvalvote.co/results/{{ poll_id }}
+        https://approvalvote.co/results/{{ poll_id }}
       </div>
       <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-3 rounded-full transition duration-150 ease-in-out flex items-center gap-2" onclick="navigator.clipboard.writeText('https://approvalvote.co/results/{{ poll_id }}')">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
