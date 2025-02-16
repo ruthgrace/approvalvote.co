@@ -154,11 +154,9 @@ def sorted_candidate_sets(seats, candidates):
             vote_overlap = votes_by_number_of_candidates(winning_set, candidates)
             total = 0
             for c in range(len(winning_set)):
-                if c == 0:
-                    total += len(vote_overlap[c])
-                else:
+                if c != 0:
                     multiplier += 1/(c+1)
-                    total += len(vote_overlap[c])*multiplier
+                total += len(vote_overlap[c])*multiplier
             total_votes.append(total)
         sorted_sets = sorted(zip(total_votes, winning_sets), reverse=True)
     # print(f"sorted sets is {sorted_sets}")
