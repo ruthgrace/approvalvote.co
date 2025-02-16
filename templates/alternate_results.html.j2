@@ -18,64 +18,57 @@
   </div>
 </div>
 
-  <script>
-    var options1 = {
-      yaxis: {
-        min: 0,
-        max: {{max_votes}}
-      },
-      chart: {
-        type: 'bar',
-        height: '400'
-      },
-      series: [
-        {
-          name: 'Votes',
-          data: {{desired_vote_tally}}
-        }
-      ],
-      xaxis: {
-        categories: {{desired_chart_labels}}
-      },
-      colors: ['#4F46E5'],
-      plotOptions: {
-        bar: {
-          distributed: false,
-          borderRadius: 4
-        }
-      }
-    };
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+  function createBarChart(containerId, data, labels) {
+    // Set dimensions
+    const margin = {top: 20, right: 20, bottom: 30, left: 40};
+    const width = 600 - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
 
-    var chart1 = new ApexCharts(document.querySelector('#chart1'), options1);
-    chart1.render();
+    // Create SVG
+    const svg = d3.select(containerId)
+      .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    var options2 = {
-      yaxis: {
-        min: 0,
-        max: {{max_votes}}
-      },
-      chart: {
-        type: 'bar',
-        height: '400'
-      },
-      series: [
-        {
-          name: 'Votes',
-          data: {{actual_vote_tally}}
-        }
-      ],
-      xaxis: {
-        categories: {{actual_chart_labels}}
-      },
-      colors: ['#4F46E5'],
-      plotOptions: {
-        bar: {
-          distributed: false,
-          borderRadius: 4
-        }
-      }
-    };
+    // Create scales
+    const x = d3.scaleBand()
+      .range([0, width])
+      .padding(0.1)
+      .domain(labels);
 
-    var chart2 = new ApexCharts(document.querySelector('#chart2'), options2);
-    chart2.render();
-  </script>
+    const y = d3.scaleLinear()
+      .range([height, 0])
+      .domain([0, {{max_votes}}]);
+
+    // Add X axis
+    svg.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(x));
+
+    // Add Y axis
+    svg.append("g")
+      .call(d3.axisLeft(y));
+
+    // Create bars
+    svg.selectAll(".bar")
+      .data(data)
+      .enter()
+      .append("rect")
+        .attr("class", "bar")
+        .attr("x", (d, i) => x(labels[i]))
+        .attr("y", d => y(d))
+        .attr("width", x.bandwidth())
+        .attr("height", d => height - y(d))
+        .attr("fill", "#4F46E5");
+  }
+
+  // Create first chart
+  createBarChart("#chart1", {{desired_vote_tally}}, {{desired_chart_labels}});
+
+  // Create second chart
+  createBarChart("#chart2", {{actual_vote_tally}}, {{actual_chart_labels}});
+</script>
