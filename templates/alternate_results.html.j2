@@ -46,12 +46,12 @@
     // Create scales
     const x = d3.scaleBand()
       .range([0, width])
-      .padding(0.1)
+      .padding(0.3)  // More padding between bars
       .domain(labels);
 
     const y = d3.scaleLinear()
       .range([height, 0])
-      .domain([0, {{max_votes}}]);
+      .domain([0, {{max_votes}}]);  // Use max_votes to keep scales consistent
 
     // Add X axis
     svg.append("g")
@@ -66,7 +66,7 @@
       .attr("y", 30)
       .each(function(d) {
         const words = d.split(/\s+/);
-        const maxChars = 15;
+        const maxChars = 15;  // Back to simple fixed length
         let lines = [];
         let currentLine = words[0];
 
@@ -94,7 +94,7 @@
     svg.append("g")
       .attr("transform", "translate(-10,0)")
       .call(d3.axisLeft(y)
-        .ticks(Math.min(d3.max(data), 10))
+        .ticks(5)  // Use fixed number of ticks
         .tickFormat(d3.format("d")))
       .selectAll("text")
       .style("font-size", "18px")
@@ -102,24 +102,42 @@
       .style("fill", "black")
       .style("font-family", '"Red Hat Display", sans-serif');
 
-    // Create bars
-    svg.selectAll(".bar")
+    // Create segmented bars
+    const barGroups = svg.selectAll(".bar-group")
       .data(data)
       .enter()
-      .append("rect")
-        .attr("class", "bar")
-        .attr("x", (d, i) => x(labels[i]))
-        .attr("y", d => y(d))
-        .attr("width", x.bandwidth())
-        .attr("height", d => height - y(d))
-        .attr("fill", "#2563EB")
-        .attr("rx", 4)
-        .attr("ry", 4);
+      .append("g")
+      .attr("class", "bar-group");
+
+    barGroups.each(function(d, i) {
+      const segments = i + 1;  // First bar has 1 segment, second has 2, etc.
+      const segmentWidth = x.bandwidth() / segments;
+      const segmentValue = d / segments;  // Split the value evenly among segments
+      
+      // Create segments for this bar
+      d3.select(this)
+        .selectAll(".segment")
+        .data(d3.range(segments))
+        .enter()
+        .append("rect")
+          .attr("class", "segment")
+          .attr("x", d => x(labels[i]) + (d * segmentWidth))
+          .attr("y", y(segmentValue))
+          .attr("width", segmentWidth)
+          .attr("height", height - y(segmentValue))
+          .attr("fill", "#2563EB")
+          .attr("fill-opacity", d => 1 - (d * 0.15))
+          .attr("rx", 4)
+          .attr("ry", 4);
+    });
 
     // Add tooltips
-    svg.selectAll(".bar")
+    barGroups.selectAll(".segment")
       .append("title")
-      .text((d, i) => `${labels[i]}: ${d} votes`);
+      .text((d, i, nodes) => {
+        const barIndex = d3.select(nodes[i].parentNode).datum();
+        return `${labels[barIndex]}: ${data[barIndex]} votes`;
+      });
 
     // Set container height
     d3.select(containerId)
