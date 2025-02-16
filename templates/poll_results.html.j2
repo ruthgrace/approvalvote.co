@@ -70,9 +70,10 @@
     .call(d3.axisBottom(x))
     .selectAll("text")  
     .style("text-anchor", "middle")
-    .style("font-size", "20px")
+    .style("font-size", "18px")
     .style("font-weight", "500")
     .style("fill", "black")
+    .style("font-family", '"Red Hat Display", sans-serif')
     .attr("y", 30)
     .each(function(d) {
       const words = d.split(/\s+/);
@@ -109,7 +110,8 @@
     .selectAll("text")
     .style("font-size", "18px")
     .style("font-weight", "500")
-    .style("fill", "black");
+    .style("fill", "black")
+    .style("font-family", '"Red Hat Display", sans-serif');
 
   // Create bars
   svg.selectAll(".bar")
