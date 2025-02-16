@@ -2,7 +2,7 @@
   <div style="display: flex; justify-content: space-around; gap: 20px;">
     <div style="flex: 1;">
       <h2 class="text-2xl font-bold mb-4">Votes for preferred result: {{ desired_candidates }}</h2>
-      <div id="chart1" class="h-64"></div>
+      <div id="chart1"></div>
     </div>
 
     <!-- Second Chart Container -->
@@ -12,7 +12,7 @@
       {% else %}
         <h2 class="text-2xl font-bold mb-4">Votes for the actual winning result: {{actual_candidates}}</h2>
       {% endif %}
-      <div id="chart2" class="h-64"></div>
+      <div id="chart2"></div>
     </div>
 
   </div>
@@ -20,17 +20,26 @@
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-  function createBarChart(containerId, data, labels) {
-    // Set dimensions
-    const margin = {top: 20, right: 20, bottom: 30, left: 40};
-    const width = 600 - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
+  // Log data to verify it's being passed correctly
+  console.log("Vote Labels:", {{ desired_chart_labels|tojson }});
+  console.log("Vote Tally:", {{ desired_vote_tally|tojson }});
+  console.log("Max Votes:", {{ max_votes }});
 
-    // Create SVG
+  function createBarChart(containerId, data, labels) {
+    console.log("Creating chart for", containerId, "with data:", data, "and labels:", labels);
+    
+    // Set dimensions
+    const margin = {top: 20, right: 20, bottom: 80, left: 60};
+    const containerWidth = 600;  // Set a fixed width for now
+    const width = containerWidth - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+    const totalHeight = height + margin.top + margin.bottom;
+
+    // Create SVG with fixed width for debugging
     const svg = d3.select(containerId)
       .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
+        .attr("width", containerWidth)
+        .attr("height", totalHeight)
       .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -47,11 +56,49 @@
     // Add X axis
     svg.append("g")
       .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x));
+      .call(d3.axisBottom(x))
+      .selectAll("text")  
+      .style("text-anchor", "middle")
+      .style("font-size", "20px")
+      .style("font-weight", "500")
+      .style("fill", "black")
+      .attr("y", 30)
+      .each(function(d) {
+        const words = d.split(/\s+/);
+        const maxChars = 15;
+        let lines = [];
+        let currentLine = words[0];
+
+        for(let i = 1; i < words.length; i++) {
+          if (currentLine.length + words[i].length + 1 <= maxChars) {
+            currentLine += " " + words[i];
+          } else {
+            lines.push(currentLine);
+            currentLine = words[i];
+          }
+        }
+        lines.push(currentLine);
+
+        d3.select(this).text(null);
+        lines.forEach((line, i) => {
+          d3.select(this)
+            .append("tspan")
+            .attr("x", 0)
+            .attr("dy", i === 0 ? 0 : "1.2em")
+            .text(line);
+        });
+      });
 
     // Add Y axis
     svg.append("g")
-      .call(d3.axisLeft(y));
+      .attr("transform", "translate(-10,0)")
+      .call(d3.axisLeft(y)
+        .ticks(Math.min(d3.max(data), 10))
+        .tickFormat(d3.format("d")))
+      .selectAll("text")
+      .style("font-size", "18px")
+      .style("font-weight", "500")
+      .style("fill", "black");
 
     // Create bars
     svg.selectAll(".bar")
@@ -63,12 +110,22 @@
         .attr("y", d => y(d))
         .attr("width", x.bandwidth())
         .attr("height", d => height - y(d))
-        .attr("fill", "#4F46E5");
+        .attr("fill", "#2563EB")
+        .attr("rx", 4)
+        .attr("ry", 4);
+
+    // Add tooltips
+    svg.selectAll(".bar")
+      .append("title")
+      .text((d, i) => `${labels[i]}: ${d} votes`);
+
+    // Set container height
+    d3.select(containerId)
+      .style("height", totalHeight + "px")
+      .style("margin-bottom", "2rem");
   }
 
-  // Create first chart
-  createBarChart("#chart1", {{desired_vote_tally}}, {{desired_chart_labels}});
-
-  // Create second chart
-  createBarChart("#chart2", {{actual_vote_tally}}, {{actual_chart_labels}});
+  // Create charts
+  createBarChart("#chart1", {{desired_vote_tally}}, {{desired_chart_labels|tojson}});
+  createBarChart("#chart2", {{actual_vote_tally}}, {{actual_chart_labels|tojson}});
 </script>
