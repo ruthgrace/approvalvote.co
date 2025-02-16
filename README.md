@@ -148,6 +148,8 @@ pytest tests/test_integration.py -v
 ```
 
 ## to do
+* fix harmonic addition bug
+* make it so that votes for multiple candidates are muitple bars
 * tailwind production
 * revisit domain reputation issue for sending verification code email - need to switch to google suite instead of namecheap private email (and update dns records)
 * unit testing for existing features
