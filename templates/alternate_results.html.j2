@@ -29,7 +29,7 @@
     console.log("Creating chart for", containerId, "with data:", data, "and labels:", labels);
     
     // Set dimensions
-    const margin = {top: 20, right: 20, bottom: 80, left: 60};
+    const margin = {top: 20, right: 20, bottom: 120, left: 60};
     const containerWidth = 600;  // Set a fixed width for now
     const width = containerWidth - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
@@ -52,6 +52,27 @@
     const y = d3.scaleLinear()
       .range([height, 0])
       .domain([0, {{max_votes}}]);  // Use max_votes to keep scales consistent
+
+    // Add Y axis title
+    svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0 - margin.left - 5)
+        .attr("x", 0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .style("font-size", "22px")
+        .style("font-weight", "bold")
+        .style("font-family", '"Red Hat Display", sans-serif')
+        .text("Votes");
+
+    // Add X axis title
+    svg.append("text")
+        .attr("transform", `translate(${width/2}, ${height + margin.bottom - 10})`)
+        .style("text-anchor", "middle")
+        .style("font-size", "22px")
+        .style("font-weight", "bold")
+        .style("font-family", '"Red Hat Display", sans-serif')
+        .text("Number of candidates in this set the vote was cast for");
 
     // Add X axis
     svg.append("g")
