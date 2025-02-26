@@ -83,7 +83,7 @@ Your verification code for ApprovalVote.Co is: {code}
 If you didn't request this code, please ignore this email.
     """.strip())
 
-    smtp_server = "mail.privateemail.com"
+    smtp_server = "smtp.gmail.com"
     port = 587  # 587 is the standard port for STARTTLS
 
     # Create a secure SSL context
