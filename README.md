@@ -148,8 +148,7 @@ pytest tests/test_integration.py -v
 ```
 
 ## to do
-* fix text overlap bug for results chart labels
-* refactor so that hard coded values are variables or something (esp on charts)
+* fix text overlap bug for results chart labels e.g. https://approvalvote.co/results/56
 * tailwind production
 * revisit domain reputation issue for sending verification code email - need to switch to google suite instead of namecheap private email (and update dns records)
 * unit testing for existing features

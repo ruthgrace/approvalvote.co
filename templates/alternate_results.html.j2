@@ -112,7 +112,7 @@
     barGroups.each(function(d, i) {
       const segments = i + 1;  // First bar has 1 segment, second has 2, etc.
       const segmentWidth = x.bandwidth() / segments;
-      const segmentValue = d / segments;  // Split the value evenly among segments
+      const segmentValue = d;  // Split the value evenly among segments
       
       // Create segments for this bar
       d3.select(this)
