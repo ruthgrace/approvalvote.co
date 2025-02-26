@@ -75,9 +75,10 @@
     .style("fill", "black")
     .style("font-family", '"Red Hat Display", sans-serif')
     .attr("y", 30)
-    .each(function(d) {
+    .each(function(d, index, nodes) {
       const words = d.split(/\s+/);
-      const maxChars = 15;
+      const numBars = nodes.length;
+      const maxChars = 80 / numBars;
       let lines = [];
       let currentLine = words[0];
 
