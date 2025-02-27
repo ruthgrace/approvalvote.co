@@ -91,9 +91,15 @@ sudo systemctl enable approvalvote
 sudo systemctl start approvalvote
 sudo systemctl status approvalvote
 ```
-### DNS
 
-don't forget to make DMARC, DKIM, SPF, and MX records so that email verification works
+### install production tailwind css
+
+on my current machine i have npm version 10.8.1
+
+```
+npm install
+npm run build
+```
 
 ### troubleshooting
 
@@ -148,8 +154,6 @@ pytest tests/test_integration.py -v
 ```
 
 ## to do
-* tailwind production
-* revisit domain reputation issue for sending verification code email - need to switch to google suite instead of namecheap private email (and update dns records)
 * unit testing for existing features
 * feature for opening and closing polls
 * make sure there aren't duplicate options

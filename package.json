@@ -1,0 +1,22 @@
+{
+  "name": "approvalvote.co",
+  "version": "1.0.0",
+  "description": "# dev ## set up on new server i have an almalinux server. the default python is 3.9 but i also have 3.12 so i can use fstrings",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tailwindcss -i ./static/css/main.css -o ./static/css/styles.css --minify",
+    "watch": "tailwindcss -i ./static/css/main.css -o ./static/css/styles.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.1"
+  }
+}
