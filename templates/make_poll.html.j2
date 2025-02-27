@@ -11,9 +11,7 @@
       <div class="col-span-3">
         <div class="flex justify-end">
           <a href="/makepoll">
-            <button type="submit" class="bg-gray-500 text-white font-medium px-6 py-4 rounded-full transition duration-150 ease-in-out">
-              Create poll
-            </button>
+            <button type="submit" class="btn-disabled">Create poll</button>
           </a>
         </div>
         <div id="error-message-div" class="flex w-full"></div>
@@ -120,16 +118,16 @@ function isFormValid() {
   return form.checkValidity();
 }
 
-// Update button color when inputs change
+// Update button class when inputs change
 document.querySelectorAll('input, textarea').forEach(input => {
   input.addEventListener('input', () => {
     const button = document.querySelector('button[type="submit"]');
     if (isFormValid()) {
-      button.classList.remove('bg-gray-500');
-      button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+      button.classList.remove('btn-disabled');
+      button.classList.add('btn-primary');
     } else {
-      button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-      button.classList.add('bg-gray-500');
+      button.classList.remove('btn-primary');
+      button.classList.add('btn-disabled');
     }
   });
 });
