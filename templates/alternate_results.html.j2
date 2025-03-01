@@ -112,7 +112,7 @@
     svg.append("g")
       .attr("transform", "translate(-10,0)")
       .call(d3.axisLeft(y)
-        .ticks(5)
+        .ticks({{max_votes}})
         .tickFormat(d3.format("d")))
       .selectAll("text")
       .call(axisTextStyle);
