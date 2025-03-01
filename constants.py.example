@@ -1,0 +1,10 @@
+# Example constants.py file. Fill in valid values.
+DB_PASS = "..."
+DB_URL = "https://....supabase.co"
+DB_SERVICE_ROLE_KEY = "..."
+DB_KEY = "..."
+FLASK_SECRET = "..."
+NOREPLY_EMAIL = "noreply@example.com"
+NOREPLY_PASSWORD = "..."
+CONTACT_EMAIL = "contact@example.com"
+CONTACT_PASSWORD = "..."
