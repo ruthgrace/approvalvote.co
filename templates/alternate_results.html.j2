@@ -17,22 +17,8 @@
 </div>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="{{ url_for('static', filename='js/chartStyles.js') }}"></script>
 <script>
-  // Reusable style functions
-  const axisTextStyle = (selection) => {
-    selection
-      .style("font-size", "18px")
-      .style("font-weight", "500")
-      .style("fill", "black");
-  };
-
-  const axisTitleStyle = (selection) => {
-    selection
-      .style("text-anchor", "middle")
-      .style("font-size", "22px")
-      .style("font-weight", "bold");
-  };
-
   function createBarChart(containerId, data, labels) {
     // Set dimensions
     const margin = {top: 20, right: 20, bottom: 120, left: 60};
