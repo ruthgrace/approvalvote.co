@@ -160,3 +160,5 @@ pytest tests/test_integration.py -v
 * edit poll
 ** delete poll from database option
 ** view voters for a poll (but maybe hide what they voted for)
+* dockerize it, run multiple docker containers
+* look into autoscaling in digital ocean

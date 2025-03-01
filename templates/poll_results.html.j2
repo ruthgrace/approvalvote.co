@@ -6,7 +6,7 @@
   <p class="text-lg text-gray-500">{{description}}</p>
   <p class="text-lg">Poll results: {{winners}}</p>
   <div class="container mx-auto px-4">
-    <div style="display: flex; justify-content: space-around; gap: 20px;">
+    <div style="display: flex; justify-content: space-around; gap-20px;">
       <div style="flex: 1;">
         <h2 class="text-2xl font-bold mb-4">Votes</h2>
         <p>Here is a chart of the vote counts for each candidate. Keep in mind that voters can vote for as many candidates as they want.</p>
@@ -29,12 +29,13 @@
       <br />
       {% endfor %}
     </div>
-    <button type="resultsubmit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-4 rounded-full transition duration-150 ease-in-out">See how close your preferred candidates were to winning</button>
+    <button type="resultsubmit" class="btn-primary">See how close your preferred candidates were to winning</button>
   </form>
   <div id="resultresponse"></div>
 </div>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="{{ url_for('static', filename='js/chartStyles.js') }}"></script>
 <script>
   // Set dimensions
   const margin = {top: 20, right: 20, bottom: 80, left: 60};
@@ -43,7 +44,7 @@
   const totalHeight = height + margin.top + margin.bottom;
 
   // Parse the data from Jinja
-  const voteLabels = {{ vote_labels|tojson }};  // Use tojson filter
+  const voteLabels = {{ vote_labels|tojson }};
   const voteTally = {{ vote_tally|tojson }};
 
   // Create SVG
@@ -58,11 +59,11 @@
   const x = d3.scaleBand()
     .range([0, width])
     .padding(0.1)
-    .domain(voteLabels);  // Use parsed labels
+    .domain(voteLabels);
 
   const y = d3.scaleLinear()
     .range([height, 0])
-    .domain([0, d3.max(voteTally)]);  // Use parsed tally
+    .domain([0, d3.max(voteTally)]);
 
   // Add X axis
   svg.append("g")
@@ -70,10 +71,7 @@
     .call(d3.axisBottom(x))
     .selectAll("text")  
     .style("text-anchor", "middle")
-    .style("font-size", "18px")
-    .style("font-weight", "500")
-    .style("fill", "black")
-    .style("font-family", '"Red Hat Display", sans-serif')
+    .call(axisTextStyle)
     .attr("y", 30)
     .each(function(d, index, nodes) {
       const words = d.split(/\s+/);
@@ -92,7 +90,7 @@
       }
       lines.push(currentLine);
 
-      d3.select(this).text(null);  // Clear existing text
+      d3.select(this).text(null);
       lines.forEach((line, i) => {
         d3.select(this)
           .append("tspan")
@@ -106,34 +104,25 @@
   svg.append("g")
     .attr("transform", "translate(-10,0)")
     .call(d3.axisLeft(y)
-      .ticks(Math.min(d3.max(voteTally), 10))
+      .ticks(d3.max(voteTally))
       .tickFormat(d3.format("d")))
     .selectAll("text")
-    .style("font-size", "18px")
-    .style("font-weight", "500")
-    .style("fill", "black")
-    .style("font-family", '"Red Hat Display", sans-serif');
+    .call(axisTextStyle);
 
-    // Add Y axis title
-    svg.append("text")
-        .attr("transform", "rotate(-90)")
-        .attr("y", 0 - margin.left - 5)
-        .attr("x", 0 - (height / 2))
-        .attr("dy", "1em")
-        .style("text-anchor", "middle")
-        .style("font-size", "22px")
-        .style("font-weight", "bold")
-        .style("font-family", '"Red Hat Display", sans-serif')
-        .text("Votes");
+  // Add Y axis title
+  svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 0 - margin.left - 5)
+      .attr("x", 0 - (height / 2))
+      .attr("dy", "1em")
+      .call(axisTitleStyle)
+      .text("Votes");
 
-    // Add X axis title
-    svg.append("text")
-        .attr("transform", `translate(${width/2}, ${height + margin.bottom})`)
-        .style("text-anchor", "middle")
-        .style("font-size", "22px")
-        .style("font-weight", "bold")
-        .style("font-family", '"Red Hat Display", sans-serif')
-        .text("Candidates");
+  // Add X axis title
+  svg.append("text")
+      .attr("transform", `translate(${width/2}, ${height + margin.bottom})`)
+      .call(axisTitleStyle)
+      .text("Candidates");
 
   // Create bars
   svg.selectAll(".bar")
@@ -141,7 +130,7 @@
     .enter()
     .append("rect")
       .attr("class", "bar")
-      .attr("x", (d, i) => x(voteLabels[i]))  // Use parsed labels
+      .attr("x", (d, i) => x(voteLabels[i]))
       .attr("y", d => y(d))
       .attr("width", x.bandwidth())
       .attr("height", d => height - y(d))
@@ -152,11 +141,11 @@
   // Add tooltips
   svg.selectAll(".bar")
     .append("title")
-    .text((d, i) => `${voteLabels[i]}: ${d} votes`);  // Use parsed labels
+    .text((d, i) => `${voteLabels[i]}: ${d} votes`);
 
-  // Set container height to match SVG
+  // Set container height
   d3.select("#chart")
     .style("height", totalHeight + "px")
-    .style("margin-bottom", "2rem");  // Add some spacing after chart
+    .style("margin-bottom", "2rem");
 </script>
 {% endblock %}
