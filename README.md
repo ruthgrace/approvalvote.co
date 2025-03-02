@@ -4,6 +4,10 @@
 ## set up on new server
 i have an almalinux server. the default python is 3.9 but i also have 3.12 so i can use fstrings
 
+```
+sudo dnf install python3.12
+```
+
 `pip3.12 install virtualenv` if necessary
 
 ```
@@ -92,6 +96,14 @@ sudo systemctl start approvalvote
 sudo systemctl status approvalvote
 ```
 
+### install pre-commit hook
+
+this is to run tests when you commit
+
+```
+pre-commit install
+```
+
 ### install production tailwind css
 
 on my current machine i have npm version 10.8.1
@@ -154,6 +166,12 @@ tests are in the tests folder.
 
 ```
 pytest -v
+```
+
+### set up tests to run on every commit
+
+```
+ln -s /var/www/approvalvote.co/pre-commit .git/hooks/pre-commit
 ```
 
 ## to do
