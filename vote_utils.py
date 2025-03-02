@@ -1,3 +1,5 @@
+import itertools
+
 def format_vote_confirmation(selected_options):
     option_names = []
     for option in selected_options:
