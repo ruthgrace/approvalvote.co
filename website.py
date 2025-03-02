@@ -4,7 +4,7 @@ import itertools
 import traceback
 from database import PollDatabase
 from email_service import EmailService
-from vote_utils import format_vote_confirmation, format_winners_text, sorted_candidate_sets
+from vote_utils import format_vote_confirmation, format_winners_text, sorted_candidate_sets, votes_by_candidate, votes_by_number_of_candidates
 import constants
 
 app = Flask(__name__)

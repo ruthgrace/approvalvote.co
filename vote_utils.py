@@ -64,4 +64,32 @@ def sorted_candidate_sets(seats, candidates):
             total += len(vote_overlap[c])*multiplier
         total_votes.append(total)
     
-    return sorted(zip(total_votes, winning_sets), reverse=True) 
+    return sorted(zip(total_votes, winning_sets), reverse=True)
+
+def votes_by_candidate(poll_id, supabase, candidate_ids=None):
+    if candidate_ids is None:
+        response = supabase.table("PollOptions").select("id").eq("poll", poll_id).execute()
+        candidate_ids = [int(item["id"]) for item in response.data]
+    candidates = {}
+    for candidate_id in candidate_ids:
+        candidates[candidate_id] = set()
+    # get votes
+    for candidate_id in candidate_ids:
+        response = supabase.table("Votes").select("user", "option").eq("poll", poll_id).eq("option", candidate_id).execute()
+        for vote in response.data:
+            candidates[vote["option"]].add(vote["user"])
+    return candidates
+
+def votes_by_number_of_candidates(winning_set, candidates):
+    # vote overlap counts how many users voted for 1, 2, 3, etc of the candidates in the winning set
+    vote_overlap = []
+    for c in range(len(winning_set)):
+        vote_overlap.append(set())
+        votes = candidates[winning_set[c]]
+        for i in range(0,c):
+            promote = vote_overlap[i].intersection(votes)
+            vote_overlap[i] = vote_overlap[i] - promote
+            vote_overlap[i+1] = vote_overlap[i+1].union(promote)
+            votes = votes - promote
+        vote_overlap[0] = vote_overlap[0].union(votes)
+    return vote_overlap
