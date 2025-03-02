@@ -17,7 +17,8 @@ class PollDatabase:
         response = self.client.table("Users").insert({}).execute()
         return response.data[0]['id']
 
-    def save_form_data(self, email, form_data):
+    def save_form_data(self, form_data):
+        email = form_data[EMAIL]
         self.client.table("FormData").delete().eq("email", email).execute()
         return self.client.table("FormData").insert({"email": email, "form_data": form_data}).execute()
 

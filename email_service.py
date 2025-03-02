@@ -15,6 +15,7 @@ class EmailService:
 
     def send_verification_email(self, recipient_email):
         code = self.generate_verification_code()
+        print(f"verification code is {code}")
         message = EmailMessage()
         message["Subject"] = "ApprovalVote.Co Verification Code"
         message["From"] = self.noreply_email

@@ -40,108 +40,6 @@ def home_page():
 def make_poll_page():
     return render_template('make_poll.html.j2')
 
-def get_user_id(email, supabase):
-        response = supabase.table("Users").select("id").eq("email", email).execute()
-        if len(response.data) == 0:
-            return None
-        user_id = response.data[0]['id']
-        return user_id
-
-def user_exists(email, supabase):
-    response = supabase.table("Users").select("id").eq("email", email).execute()
-    if len(response.data) == 0:
-        return False
-    return True
-
-def update_form_data(poll_data, supabase):
-    # delete their form data entry if they had any left over
-    supabase.table("FormData").delete().eq("email", poll_data[EMAIL]).execute()
-    # write new form data entry
-    response = (
-        supabase.table("FormData")
-        .insert({"email": poll_data[EMAIL], "form_data": poll_data})
-        .execute()
-    )
-
-def random_code():
-    return "".join([random.choice(DIGITS) for _ in range(VERIFICATION_CODE_LENGTH)])
-
-def send_verification_email(recipient_email):
-    code = random_code()
-    print(f"verification code is {code}")
-    session[VERIFICATION_CODE] = code
-    # Create the email content
-    message = EmailMessage()
-    message["Subject"] = "ApprovalVote.Co Verification Code"
-    message["From"] = constants.NOREPLY_EMAIL
-    message["To"] = recipient_email
-    
-    # Create a simple email body; you could also use HTML here
-    message.set_content(f"""
-Hello,
-
-Your verification code for ApprovalVote.Co is: {code}
-
-If you didn't request this code, please ignore this email.
-    """.strip())
-
-    smtp_server = "smtp.gmail.com"
-    port = 587  # 587 is the standard port for STARTTLS
-
-    # Create a secure SSL context
-    context = ssl.create_default_context()
-
-    try:
-        with smtplib.SMTP(smtp_server, port) as server:
-            # Identify yourself to the server (some servers may require this)
-            server.ehlo()
-            # Secure the connection
-            server.starttls(context=context)
-            server.ehlo()
-            # Log in to your email account
-            server.login(constants.NOREPLY_EMAIL, constants.NOREPLY_PASSWORD)
-            # Send the message
-            server.send_message(message)
-        print(f"Verification email sent to {recipient_email}")
-    except Exception as e:
-        print(f"Error sending email: {e}")
-
-def votes_by_candidate(poll_id, supabase, candidate_ids=None):
-        if candidate_ids is None:
-            response = supabase.table("PollOptions").select("id").eq("poll", poll_id).execute()
-            candidate_ids = [int(item["id"]) for item in response.data]
-        candidates = {}
-        for candidate_id in candidate_ids:
-            candidates[candidate_id] = set()
-        # get votes
-        for candidate_id in candidate_ids:
-            response = supabase.table("Votes").select("user", "option").eq("poll", poll_id).eq("option", candidate_id).execute()
-            for vote in response.data:
-                candidates[vote["option"]].add(vote["user"])
-        return candidates
-
-def candidate_text_dict(poll_id, supabase):
-        response = supabase.table("PollOptions").select("id", "option").eq("poll", poll_id).execute()
-        candidate_text = {}
-        for item in response.data:
-            candidate_text[item["id"]] = item["option"]
-        candidate_text = dict(sorted(candidate_text.items()))
-        return candidate_text
-
-def votes_by_number_of_candidates(winning_set, candidates):
-    # vote overlap counts how many users voted for 1, 2, 3, etc of the candidates in the winning set
-    vote_overlap = []
-    for c in range(len(winning_set)):
-        vote_overlap.append(set())
-        votes = candidates[winning_set[c]]
-        for i in range(0,c):
-            promote = vote_overlap[i].intersection(votes)
-            vote_overlap[i] = vote_overlap[i] - promote
-            vote_overlap[i+1] = vote_overlap[i+1].union(promote)
-            votes = votes - promote
-        vote_overlap[0] = vote_overlap[0].union(votes)
-    return vote_overlap
-
 @app.route("/vote/<int:poll_id>")
 def poll_page(poll_id):
     try:
@@ -170,7 +68,9 @@ def new_vote(form_data=None):
     }
 
     if len(poll_data[SELECTED]) == 0:
-        response = make_response("Please select at least one option.")
+        response = make_response(f"""
+        <p>Your vote was not counted. Please select at least one option.</p>
+        """)
         response.headers["HX-Retarget"] = "#error-message-div"
         return response
 
@@ -348,7 +248,7 @@ def new_user():
         print(f"new user response {response}")
         user_id = response.data[0]['id']
         print(f"user id is {user_id}")
-        send_verification_email(email)
+        email_service.send_verification_email(email)
         response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function))
         response.headers["HX-Retarget"] = "#error-message-div"
         response.headers["HX-Swap"] = "innerHTML"
@@ -414,16 +314,16 @@ def new_poll(form_data=None):
         poll_data[EMAIL_VERIFICATION] = bool(request.form.get("email_verification", ""))
     try:
         supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
-        if not user_exists(poll_data[EMAIL], supabase):
-            update_form_data(poll_data, supabase)
+        if not db.user_exists(poll_data[EMAIL]):
+            db.save_form_data(poll_data)
             response = make_response(render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_POLL))
             response.headers["HX-Retarget"] = "#error-message-div"
             response.headers["HX-Swap"] = "innerHTML"
             return response
-        user_id = get_user_id(poll_data[EMAIL], supabase)
+        user_id = db.get_user_id(poll_data[EMAIL])
         if EMAIL not in session or session[EMAIL] != poll_data[EMAIL]:
-            update_form_data(poll_data, supabase)
-            send_verification_email(poll_data[EMAIL])
+            db.save_form_data(poll_data)
+            email_service.send_verification_email(poll_data[EMAIL])
             response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL))
             response.headers["HX-Retarget"] = "#error-message-div"
             response.headers["HX-Swap"] = "innerHTML"
