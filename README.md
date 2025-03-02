@@ -149,11 +149,15 @@ flask --app website run --host=0.0.0.0 --debug
 ```
 
 ## run tests
+
+tests are in the tests folder.
+
 ```
-pytest tests/test_integration.py -v
+pytest -v
 ```
 
 ## to do
+* not printing verification code in log for voting
 * unit testing for existing features
 * feature for opening and closing polls
 * make sure there aren't duplicate options
