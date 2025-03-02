@@ -1,6 +1,6 @@
 venv
 __pycache__
 *.pyc
-constants.py
+secret_constants.py
 node_modules
 package-lock.json

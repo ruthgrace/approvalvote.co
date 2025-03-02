@@ -1,4 +1,5 @@
 from supabase import Client
+from constants import EMAIL
 
 class PollDatabase:
     def __init__(self, supabase_client: Client):

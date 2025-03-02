@@ -44,8 +44,8 @@ def test_calculate_vote_overlap():
     winning_set = [1, 2]
     result = calculate_vote_overlap(winning_set, candidates)
     assert len(result) == 2
-    assert len(result[0]) == 1  # One user voted for only candidate 1
-    assert len(result[1]) == 1  # One user voted for both candidates
+    assert len(result[0]) == 2  # Users 101 and 103 voted for only one candidate
+    assert len(result[1]) == 1  # User 102 voted for both candidates
 
 def test_sorted_candidate_sets_single_seat():
     candidates = {

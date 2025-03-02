@@ -5,32 +5,16 @@ import traceback
 from database import PollDatabase
 from email_service import EmailService
 from vote_utils import format_vote_confirmation, format_winners_text, sorted_candidate_sets, votes_by_candidate, votes_by_number_of_candidates
-import constants
+import secret_constants
+from constants import EMAIL, TITLE, COVER_URL, DESCRIPTION, CANDIDATES, SEATS, NEW_POLL, NEW_VOTE, EMAIL_VERIFICATION, SELECTED, ID, VERIFICATION_CODE
 
 app = Flask(__name__)
-app.secret_key = constants.FLASK_SECRET
-
-# Constants
-EMAIL = "email"
-TITLE = "title"
-COVER_URL = "cover_url"
-DESCRIPTION = "description"
-CANDIDATES = "candidates"
-SEATS = "seats"
-NEW_POLL = "new_poll"
-NEW_VOTE = "new_vote"
-EMAIL_VERIFICATION = "email_verification"
-SELECTED = "selected"
-ID = "id"
-VERIFICATION_CODE = "verification_code"
+app.secret_key = secret_constants.FLASK_SECRET
 
 # Initialize services
-supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
+supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
 db = PollDatabase(supabase)
-email_service = EmailService(constants.NOREPLY_EMAIL, constants.NOREPLY_PASSWORD)
-
-DIGITS = "0123456789"
-VERIFICATION_CODE_LENGTH = 4
+email_service = EmailService(secret_constants.NOREPLY_EMAIL, secret_constants.NOREPLY_PASSWORD)
 
 @app.route("/")
 def home_page():
@@ -180,7 +164,7 @@ def compare_results():
         (option_id, option_name) = option.split("|", maxsplit=1)
         desired_candidates[int(option_id)] = option_name
     try:
-        supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
+        supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
         response = supabase.table("PollOptions").select("id", "option", "winner").eq("poll", poll_id).execute()
         winners = []
         actual_candidates = []
@@ -237,7 +221,7 @@ def new_user():
     full_name = request.form.get("full_name", "")
     preferred_name = request.form.get("preferred_name", "")
     try:
-        supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
+        supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
         if preferred_name == "":
             preferred_name = full_name.strip().split()[0]
         response = (
@@ -265,7 +249,7 @@ def user_verification():
     user_id = request.form.get("user_id")
     # get previous form data from the original task the user was trying to complete
     try:
-        supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
+        supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
         response = supabase.table("Users").select("email").eq("id", user_id).execute()
         email = response.data[0]["email"]
         response = supabase.table("FormData").select("form_data").eq("email", email).execute()
@@ -313,7 +297,7 @@ def new_poll(form_data=None):
         poll_data[SEATS] = int(request.form.get("seats", "0"))
         poll_data[EMAIL_VERIFICATION] = bool(request.form.get("email_verification", ""))
     try:
-        supabase: Client = create_client(constants.DB_URL, constants.DB_SERVICE_ROLE_KEY)
+        supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
         if not db.user_exists(poll_data[EMAIL]):
             db.save_form_data(poll_data)
             response = make_response(render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_POLL))
