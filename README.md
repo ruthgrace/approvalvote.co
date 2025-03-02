@@ -145,7 +145,7 @@ Connect to the server
 ## run in development
 
 ```
-flask --app website run --host=0.0.0.0 --debug
+python website.py
 ```
 
 ## run tests
@@ -157,8 +157,6 @@ pytest -v
 ```
 
 ## to do
-* not printing verification code in log for voting
-* unit testing for existing features
 * feature for opening and closing polls
 * make sure there aren't duplicate options
 * edit poll

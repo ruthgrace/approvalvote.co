@@ -164,7 +164,6 @@ def compare_results():
         (option_id, option_name) = option.split("|", maxsplit=1)
         desired_candidates[int(option_id)] = option_name
     try:
-        supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
         response = supabase.table("PollOptions").select("id", "option", "winner").eq("poll", poll_id).execute()
         winners = []
         actual_candidates = []
@@ -221,7 +220,6 @@ def new_user():
     full_name = request.form.get("full_name", "")
     preferred_name = request.form.get("preferred_name", "")
     try:
-        supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
         if preferred_name == "":
             preferred_name = full_name.strip().split()[0]
         response = (
@@ -249,7 +247,6 @@ def user_verification():
     user_id = request.form.get("user_id")
     # get previous form data from the original task the user was trying to complete
     try:
-        supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
         response = supabase.table("Users").select("email").eq("id", user_id).execute()
         email = response.data[0]["email"]
         response = supabase.table("FormData").select("form_data").eq("email", email).execute()
@@ -297,7 +294,6 @@ def new_poll(form_data=None):
         poll_data[SEATS] = int(request.form.get("seats", "0"))
         poll_data[EMAIL_VERIFICATION] = bool(request.form.get("email_verification", ""))
     try:
-        supabase: Client = create_client(secret_constants.DB_URL, secret_constants.DB_SERVICE_ROLE_KEY)
         if not db.user_exists(poll_data[EMAIL]):
             db.save_form_data(poll_data)
             response = make_response(render_template("new_user_snippet.html.j2", email=poll_data[EMAIL], origin_function=NEW_POLL))
@@ -338,3 +334,6 @@ def new_poll(form_data=None):
         response = make_response(f"Error: {err}")
         response.headers["HX-Retarget"] = "#error-message-div"
         return response
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=3000, debug=True)
