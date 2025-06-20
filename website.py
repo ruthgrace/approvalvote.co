@@ -332,6 +332,14 @@ def new_poll(form_data=None):
             response.headers["HX-Swap"] = "innerHTML"
             return response
         user_id = db.get_user_id(poll_data[EMAIL])
+        
+        # TEMPORARY: Bypass email verification while SMTP is blocked by DigitalOcean
+        # TODO: Remove this bypass once SMTP is unblocked
+        print("⚠️ TEMPORARY BYPASS: Skipping email verification due to SMTP block")
+        session[EMAIL] = poll_data[EMAIL]  # Auto-verify user session
+        
+        # Original email verification code (commented out temporarily)
+        """
         if EMAIL not in session or session[EMAIL] != poll_data[EMAIL]:
             db.save_form_data(poll_data)
             # Send verification email (with timeout protection)
@@ -341,6 +349,7 @@ def new_poll(form_data=None):
             response.headers["HX-Retarget"] = "#error-message-div"
             response.headers["HX-Swap"] = "innerHTML"
             return response
+        """
         response = (
             supabase.table("Polls")
             .insert({"title": poll_data[TITLE], "description": poll_data[DESCRIPTION], "cover_photo": poll_data[COVER_URL], "seats": poll_data[SEATS], "email_verification": poll_data[EMAIL_VERIFICATION]})
