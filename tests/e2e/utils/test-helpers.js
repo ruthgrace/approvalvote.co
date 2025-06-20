@@ -77,8 +77,17 @@ async function extractPollId(page) {
     return urlMatch[1] || urlMatch[2] || urlMatch[3] || urlMatch[4];
   }
   
-  // Try to find poll ID in page content
-  const pollIdElements = await page.locator('a[href*="/vote/"], a[href*="/results/"], :has-text("poll"), :has-text("id")').all();
+  // Look for poll ID in success page text content (approvalvote.co/vote/123)
+  const pageText = await page.textContent('body');
+  if (pageText) {
+    const textMatch = pageText.match(/approvalvote\.co\/vote\/(\d+)|approvalvote\.co\/results\/(\d+)/);
+    if (textMatch) {
+      return textMatch[1] || textMatch[2];
+    }
+  }
+  
+  // Try to find poll ID in href attributes
+  const pollIdElements = await page.locator('a[href*="/vote/"], a[href*="/results/"]').all();
   for (const element of pollIdElements) {
     const href = await element.getAttribute('href');
     if (href) {
@@ -87,12 +96,16 @@ async function extractPollId(page) {
         return hrefMatch[1] || hrefMatch[2];
       }
     }
-    
-    const text = await element.textContent();
-    if (text) {
-      const textMatch = text.match(/poll.*?(\d+)|id.*?(\d+)/i);
-      if (textMatch) {
-        return textMatch[1] || textMatch[2];
+  }
+  
+  // Look for poll ID in onclick attributes (copy button)
+  const copyButtons = await page.locator('button[onclick*="vote/"], button[onclick*="results/"]').all();
+  for (const button of copyButtons) {
+    const onclick = await button.getAttribute('onclick');
+    if (onclick) {
+      const onclickMatch = onclick.match(/vote\/(\d+)|results\/(\d+)/);
+      if (onclickMatch) {
+        return onclickMatch[1] || onclickMatch[2];
       }
     }
   }

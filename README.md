@@ -182,3 +182,95 @@ ln -s /var/www/approvalvote.co/pre-commit .git/hooks/pre-commit
 ** view voters for a poll (but maybe hide what they voted for)
 * dockerize it, run multiple docker containers
 * look into autoscaling in digital ocean
+
+## API Endpoints
+
+### Delete Poll
+
+**DELETE** `/api/poll/{poll_id}`
+
+Deletes a poll and all associated data (votes, options, admin relationships). Only poll administrators can delete their polls.
+
+#### Request
+
+- **URL Parameters:**
+  - `poll_id` (integer): The ID of the poll to delete
+
+- **Request Body:**
+  - `email` (string, required): Email address of the user requesting deletion
+
+#### Response
+
+**Success (200 OK):**
+```json
+{
+  "message": "Poll {poll_id} deleted successfully"
+}
+```
+
+**Error Responses:**
+
+- **400 Bad Request:** Missing email
+```json
+{
+  "error": "Email is required"
+}
+```
+
+- **403 Forbidden:** User not authorized to delete poll
+```json
+{
+  "error": "User is not authorized to delete this poll"
+}
+```
+
+- **404 Not Found:** User or poll not found
+```json
+{
+  "error": "User not found"
+}
+```
+or
+```json
+{
+  "error": "Poll not found"
+}
+```
+
+- **500 Internal Server Error:** Server error
+```json
+{
+  "error": "An error occurred while deleting the poll"
+}
+```
+
+#### Example Usage
+
+**Using curl:**
+```bash
+curl -X DELETE https://approvalvote.co/api/poll/123 \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com"}'
+```
+
+**Using JavaScript fetch:**
+```javascript
+fetch('/api/poll/123', {
+  method: 'DELETE',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    email: 'admin@example.com'
+  })
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+#### Security Notes
+
+- Only users who are administrators of a poll can delete it
+- Deletion is permanent and cascades to all related data (votes, options, etc.)
+- User verification is required through email address
+- No authentication tokens are required, but email verification during poll creation establishes admin rights

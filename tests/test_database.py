@@ -38,11 +38,12 @@ def test_get_poll_details(db, mock_supabase):
     result = db.get_poll_details(1)
     assert result == mock_data
 
-def test_save_votes(db, mock_supabase):
-    db.save_votes(1, 123, ['1|Option A', '2|Option B'])
-    # Should delete existing votes
+def test_save_votes(mock_supabase):
+    db = PollDatabase(mock_supabase)
+    db.save_votes(1, 123, ["1|Option 1", "2|Option 2"])
+    
     mock_supabase.table().delete().eq().eq().execute.assert_called_once()
-    # Should insert two new votes
+    # Called twice - once for each option
     assert mock_supabase.table().insert().execute.call_count == 2
 
 def test_get_votes_by_candidate(db, mock_supabase):
@@ -55,3 +56,67 @@ def test_get_votes_by_candidate(db, mock_supabase):
     ]
     result = db.get_votes_by_candidate(1)
     assert len(result[1]) == 2  # Two votes for candidate 1 
+
+def test_is_poll_admin():
+    """Test checking if user is admin of a poll"""
+    mock_supabase = Mock()
+    mock_supabase.table().select().eq().eq().execute.return_value.data = [{'id': 1}]
+    
+    db = PollDatabase(mock_supabase)
+    result = db.is_poll_admin(poll_id=1, user_id=123)
+    
+    assert result is True
+
+def test_is_poll_admin_false():
+    """Test checking if user is NOT admin of a poll"""
+    mock_supabase = Mock()
+    mock_supabase.table().select().eq().eq().execute.return_value.data = []
+    
+    db = PollDatabase(mock_supabase)
+    result = db.is_poll_admin(poll_id=1, user_id=123)
+    
+    assert result is False
+
+def test_poll_exists():
+    """Test checking if poll exists"""
+    mock_supabase = Mock()
+    mock_supabase.table().select().eq().execute.return_value.data = [{'id': 1}]
+    
+    db = PollDatabase(mock_supabase)
+    result = db.poll_exists(poll_id=1)
+    
+    assert result is True
+
+def test_poll_exists_false():
+    """Test checking if poll does NOT exist"""
+    mock_supabase = Mock()
+    mock_supabase.table().select().eq().execute.return_value.data = []
+    
+    db = PollDatabase(mock_supabase)
+    result = db.poll_exists(poll_id=1)
+    
+    assert result is False
+
+def test_delete_poll_authorized():
+    """Test deleting a poll when user is authorized"""
+    mock_supabase = Mock()
+    # Mock that user is admin
+    mock_supabase.table().select().eq().eq().execute.return_value.data = [{'id': 1}]
+    
+    db = PollDatabase(mock_supabase)
+    result = db.delete_poll(poll_id=1, user_id=123)
+    
+    assert result is True
+    # Should call delete 4 times (votes, options, admins, poll)
+    assert mock_supabase.table().delete().eq().execute.call_count == 4
+
+def test_delete_poll_unauthorized():
+    """Test deleting a poll when user is NOT authorized"""
+    mock_supabase = Mock()
+    # Mock that user is NOT admin
+    mock_supabase.table().select().eq().eq().execute.return_value.data = []
+    
+    db = PollDatabase(mock_supabase)
+    
+    with pytest.raises(ValueError, match="User is not authorized to delete this poll"):
+        db.delete_poll(poll_id=1, user_id=123) 

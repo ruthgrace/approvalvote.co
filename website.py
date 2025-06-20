@@ -215,28 +215,58 @@ def compare_results():
 
 @app.route("/new_user", methods=["POST"])
 def new_user():
+    print("=== NEW_USER ROUTE CALLED ===")
     email = request.form.get("email")
     origin_function = request.form.get("origin_function")
     full_name = request.form.get("full_name", "")
     preferred_name = request.form.get("preferred_name", "")
+    
+    print(f"📧 Email: {email}")
+    print(f"🎯 Origin function: {origin_function}")
+    print(f"👤 Full name: {full_name}")
+    print(f"🏷️ Preferred name: {preferred_name}")
+    
     try:
         if preferred_name == "":
             preferred_name = full_name.strip().split()[0]
+            print(f"🔄 Auto-generated preferred name: {preferred_name}")
+        
+        print("💾 Attempting to insert user into database...")
         response = (
             supabase.table("Users")
             .insert({"email": email, "full_name": full_name, "preferred_name": preferred_name})
             .execute()
         )
-        print(f"new user response {response}")
+        print(f"✅ Database insert response: {response}")
+        
         user_id = response.data[0]['id']
-        print(f"user id is {user_id}")
-        email_service.send_verification_email(email)
-        response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function))
+        print(f"🆔 Generated user ID: {user_id}")
+        
+        print("📨 Attempting to send verification email...")
+        verification_code = email_service.send_verification_email(email)
+        print(f"🔐 Email service returned verification code: {verification_code}")
+        
+        print("📝 Rendering verification code template...")
+        template_response = render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function)
+        print(f"📄 Template rendered successfully, length: {len(template_response)}")
+        
+        response = make_response(template_response)
         response.headers["HX-Retarget"] = "#error-message-div"
         response.headers["HX-Swap"] = "innerHTML"
+        print("✅ Response prepared with HTMX headers")
         return response
-    except Exception:
+        
+    except Exception as e:
+        print("❌ EXCEPTION IN NEW_USER ROUTE:")
+        print(f"Exception type: {type(e).__name__}")
+        print(f"Exception message: {str(e)}")
         print(traceback.format_exc())
+        
+        # Return an error response instead of None
+        error_response = make_response(f"Registration failed: {str(e)}")
+        error_response.headers["HX-Retarget"] = "#error-message-div"
+        error_response.headers["HX-Swap"] = "innerHTML"
+        return error_response
 
 @app.route("/verification", methods=["POST"])
 def user_verification():
@@ -334,6 +364,40 @@ def new_poll(form_data=None):
         response = make_response(f"Error: {err}")
         response.headers["HX-Retarget"] = "#error-message-div"
         return response
+
+@app.route("/api/poll/<int:poll_id>", methods=["DELETE"])
+def delete_poll_api(poll_id):
+    """API endpoint to delete a poll"""
+    try:
+        # Get email from request (could be from JSON body or form data)
+        email = None
+        if request.is_json:
+            email = request.json.get('email')
+        else:
+            email = request.form.get('email')
+        
+        if not email:
+            return {"error": "Email is required"}, 400
+        
+        # Check if user exists
+        user_id = db.get_user_id(email)
+        if not user_id:
+            return {"error": "User not found"}, 404
+        
+        # Check if poll exists
+        if not db.poll_exists(poll_id):
+            return {"error": "Poll not found"}, 404
+        
+        # Delete the poll (this will check admin permissions)
+        db.delete_poll(poll_id, user_id)
+        
+        return {"message": f"Poll {poll_id} deleted successfully"}, 200
+        
+    except ValueError as e:
+        return {"error": str(e)}, 403
+    except Exception as e:
+        print(traceback.format_exc())
+        return {"error": "An error occurred while deleting the poll"}, 500
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=3000, debug=True)
