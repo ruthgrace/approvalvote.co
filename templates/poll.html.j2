@@ -28,10 +28,14 @@
         <br />
         {% endfor %}
         <br />
+        <!-- TEMPORARY: Email field hidden while SMTP is blocked -->
+        <!-- TODO: Restore when email verification is working -->
+        <!--
         <label>
           Your email (required to edit your vote):
           <input type="text" name="user_email" />
         </label>
+        -->
       </div>
       <button type="submit" class="btn-primary">Submit Vote</button>
     </form>
