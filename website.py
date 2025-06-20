@@ -40,8 +40,9 @@ def poll_page(poll_id):
                             page_title=title, 
                             page_description=description, 
                             thumbnail_url=thumbnail_url)
-    except Exception:
+    except Exception as err:
         print(traceback.format_exc())
+        return f"Error loading poll: {type(err).__name__}. Please check if the poll ID is correct.", 404
 
 @app.route("/votesubmit", methods=["POST"])
 def new_vote(form_data=None):
@@ -333,7 +334,9 @@ def new_poll(form_data=None):
         user_id = db.get_user_id(poll_data[EMAIL])
         if EMAIL not in session or session[EMAIL] != poll_data[EMAIL]:
             db.save_form_data(poll_data)
-            email_service.send_verification_email(poll_data[EMAIL])
+            # Send verification email (with timeout protection)
+            verification_code = email_service.send_verification_email(poll_data[EMAIL])
+            session[VERIFICATION_CODE] = verification_code
             response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL))
             response.headers["HX-Retarget"] = "#error-message-div"
             response.headers["HX-Swap"] = "innerHTML"

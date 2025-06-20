@@ -35,10 +35,17 @@ If you didn't request this code, please ignore this email.
         smtp_server = "smtp.gmail.com"
         port = 587
         context = ssl.create_default_context()
-
-        with smtplib.SMTP(smtp_server, port) as server:
-            server.ehlo()
-            server.starttls(context=context)
-            server.ehlo()
-            server.login(self.noreply_email, self.noreply_password)
-            server.send_message(message) 
+        
+        try:
+            # Set timeout to prevent hanging workers
+            with smtplib.SMTP(smtp_server, port, timeout=10) as server:
+                server.ehlo()
+                server.starttls(context=context)
+                server.ehlo()
+                server.login(self.noreply_email, self.noreply_password)
+                server.send_message(message)
+                print(f"✅ Email sent successfully to {message['To']}")
+        except Exception as e:
+            print(f"❌ Failed to send email to {message['To']}: {type(e).__name__}: {e}")
+            # Don't re-raise the exception - log it and continue
+            # This prevents worker crashes when email fails 
