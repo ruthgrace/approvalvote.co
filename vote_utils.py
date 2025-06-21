@@ -1,6 +1,6 @@
 import itertools
 
-def format_vote_confirmation(selected_options):
+def format_vote_confirmation(selected_options, poll_id):
     option_names = []
     for option in selected_options:
         option_name = option.split("|", maxsplit=1)[1]
@@ -33,15 +33,23 @@ def format_vote_confirmation(selected_options):
     </script>
     """
     
+    results_link = f'<div><a href="/results/{poll_id}" class="btn-primary">See preliminary results</a></div>'
+    
     if len(option_names) == 1:
         return f"""
-        <h2>Vote submitted!</h2>
-        <p>You voted for: {option_names[0]}</p>
+        <div class="space-y-6">
+            <h2>Vote submitted!</h2>
+            <p>You voted for: {option_names[0]}</p>
+            {results_link}
+        </div>
         {button_replacement_script}
         """
     return f"""
-    <h2>Vote submitted!</h2>
-    <p>You voted for: {", ".join(option_names[:-1])}, and {option_names[-1]}</p>
+    <div class="space-y-6">
+        <h2>Vote submitted!</h2>
+        <p>You voted for: {", ".join(option_names[:-1])}, and {option_names[-1]}</p>
+        {results_link}
+    </div>
     {button_replacement_script}
     """
 

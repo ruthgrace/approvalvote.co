@@ -101,7 +101,7 @@ def new_vote(form_data=None):
         user_id = db.create_anonymous_user()
         db.save_votes(poll_data[ID], user_id, poll_data[SELECTED])
         
-        return format_vote_confirmation(poll_data[SELECTED])
+        return format_vote_confirmation(poll_data[SELECTED], poll_data[ID])
 
     except Exception as err:
         print(traceback.format_exc())
