@@ -98,7 +98,7 @@
     svg.append("g")
       .attr("transform", "translate(-10,0)")
       .call(d3.axisLeft(y)
-        .ticks({{max_votes}})
+        .ticks(Math.min(10, {{max_votes}}))
         .tickFormat(d3.format("d")))
       .selectAll("text")
       .call(axisTextStyle);

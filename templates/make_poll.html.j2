@@ -119,17 +119,72 @@ function isFormValid() {
 }
 
 // Update button class when inputs change
-document.querySelectorAll('input, textarea').forEach(input => {
-  input.addEventListener('input', () => {
-    const button = document.querySelector('button[type="submit"]');
-    if (isFormValid()) {
-      button.classList.remove('btn-disabled');
-      button.classList.add('btn-primary');
-    } else {
-      button.classList.remove('btn-primary');
-      button.classList.add('btn-disabled');
-    }
+function updateSubmitButton() {
+  const button = document.querySelector('button[type="submit"]');
+  if (isFormValid()) {
+    button.classList.remove('btn-disabled');
+    button.classList.add('btn-primary');
+  } else {
+    button.classList.remove('btn-primary');
+    button.classList.add('btn-disabled');
+  }
+}
+
+// Add event listeners to all inputs
+function addInputEventListeners() {
+  document.querySelectorAll('input, textarea').forEach(input => {
+    input.addEventListener('input', updateSubmitButton);
   });
+  
+  // Add Enter key functionality to option inputs
+  document.querySelectorAll('input[name="option"]').forEach(input => {
+    input.addEventListener('keydown', handleOptionEnterKey);
+  });
+}
+
+// Handle Enter key press on option inputs
+function handleOptionEnterKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault(); // Prevent form submission
+    
+    const currentInput = e.target;
+    const allOptionInputs = document.querySelectorAll('input[name="option"]');
+    const currentIndex = Array.from(allOptionInputs).indexOf(currentInput);
+    
+    // If there's a next input, focus on it
+    if (currentIndex < allOptionInputs.length - 1) {
+      allOptionInputs[currentIndex + 1].focus();
+    } else {
+      // If this is the last input, add a new option and focus on it
+      const addButton = document.querySelector('button[hx-post="/add-option"]');
+      if (addButton) {
+        // Simulate clicking the add button
+        addButton.click();
+        
+        // Wait a brief moment for the new input to be added, then focus on it
+        setTimeout(() => {
+          const newOptionInputs = document.querySelectorAll('input[name="option"]');
+          const newInput = newOptionInputs[newOptionInputs.length - 1];
+          if (newInput) {
+            newInput.focus();
+            // Add event listeners to the new input
+            newInput.addEventListener('input', updateSubmitButton);
+            newInput.addEventListener('keydown', handleOptionEnterKey);
+          }
+        }, 100);
+      }
+    }
+  }
+}
+
+// Initialize event listeners
+addInputEventListeners();
+
+// Re-initialize event listeners when new options are added via HTMX
+document.body.addEventListener('htmx:afterSwap', function(e) {
+  if (e.detail.target.querySelector('input[name="option"]')) {
+    addInputEventListeners();
+  }
 });
 </script>
 {% endblock %}
