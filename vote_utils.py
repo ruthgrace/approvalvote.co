@@ -6,14 +6,43 @@ def format_vote_confirmation(selected_options):
         option_name = option.split("|", maxsplit=1)[1]
         option_names.append(option_name)
     
+    # JavaScript to replace the submit button with a checkmark
+    button_replacement_script = """
+    <script>
+        // Find the submit button and replace it with a checkmark
+        const submitButton = document.querySelector('button[type="submit"]');
+        if (submitButton) {
+            // Store original dimensions to preserve them
+            const originalWidth = submitButton.offsetWidth;
+            const originalHeight = submitButton.offsetHeight;
+            
+            submitButton.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-8 h-8 mx-auto">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+            `;
+            
+            // Preserve the original button size
+            submitButton.style.width = originalWidth + 'px';
+            submitButton.style.height = originalHeight + 'px';
+            submitButton.style.minWidth = originalWidth + 'px';
+            submitButton.style.minHeight = originalHeight + 'px';
+            submitButton.disabled = true;
+            submitButton.style.cursor = 'default';
+        }
+    </script>
+    """
+    
     if len(option_names) == 1:
         return f"""
         <h2>Vote submitted!</h2>
         <p>You voted for: {option_names[0]}</p>
+        {button_replacement_script}
         """
     return f"""
     <h2>Vote submitted!</h2>
     <p>You voted for: {", ".join(option_names[:-1])}, and {option_names[-1]}</p>
+    {button_replacement_script}
     """
 
 def format_winners_text(winning_set, candidate_text, seats, is_tie=False):
