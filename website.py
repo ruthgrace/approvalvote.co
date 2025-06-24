@@ -60,12 +60,6 @@ def new_vote(form_data=None):
         return response
 
     try:
-        # TEMPORARY: Bypass email verification for voting while SMTP is blocked
-        # TODO: Remove this bypass once SMTP is unblocked
-        print("⚠️ TEMPORARY BYPASS: Skipping voting email verification due to SMTP block")
-        
-        # Original email verification code (commented out temporarily)
-        """
         # Check if email verification is required
         email_verification = db.get_poll_email_verification(poll_data[ID])
         if email_verification and not poll_data[EMAIL]:
@@ -73,10 +67,6 @@ def new_vote(form_data=None):
 
         # Handle user verification
         if poll_data[EMAIL]:
-        """
-        
-        # Process anonymous voting since email is disabled
-        if False:  # This block will never run, but preserves original logic
             if not db.user_exists(poll_data[EMAIL]):
                 db.save_form_data(poll_data[EMAIL], poll_data)
                 response = make_response(render_template(
@@ -97,8 +87,8 @@ def new_vote(form_data=None):
                     origin_function=NEW_VOTE
                 )
 
-        # Process the vote - always anonymous while email is disabled
-        user_id = db.create_anonymous_user()
+        # Process the vote
+        user_id = db.get_user_id(poll_data[EMAIL]) if poll_data[EMAIL] else db.create_anonymous_user()
         db.save_votes(poll_data[ID], user_id, poll_data[SELECTED])
         
         return format_vote_confirmation(poll_data[SELECTED], poll_data[ID])
