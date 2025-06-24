@@ -46,10 +46,12 @@ module.exports = defineConfig({
       use: { ...devices['Desktop Firefox'] },
     },
 
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
+    // Temporarily disabled due to missing multimedia dependencies on AlmaLinux
+    // Can be re-enabled once gstreamer1-plugin-libav is available
+    // {
+    //   name: 'webkit',
+    //   use: { ...devices['Desktop Safari'] },
+    // },
 
     /* Test against mobile viewports. */
     // {
@@ -76,7 +78,7 @@ module.exports = defineConfig({
   webServer: {
     command: 'source venv/bin/activate && python website.py',
     url: 'http://127.0.0.1:3000',
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 120 * 1000,
     env: {
       FLASK_ENV: 'development'
