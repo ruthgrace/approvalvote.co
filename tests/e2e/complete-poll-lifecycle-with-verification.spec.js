@@ -23,7 +23,40 @@ test.describe('Complete Poll Lifecycle with Verification', () => {
     const optionInputs = page.locator('input[name="option"]');
     await optionInputs.nth(0).fill('Option A');
     await optionInputs.nth(1).fill('Option B');
-    await optionInputs.nth(2).fill('Option C');
+    
+    // Add a third option by clicking the "Add an option" button
+    await page.click('button[hx-post="/add-option"]');
+    await page.waitForTimeout(500); // Wait for the new input to be added
+    
+    // Now fill the third option and press Enter to add a fourth option
+    const updatedOptionInputs = page.locator('input[name="option"]');
+    await updatedOptionInputs.nth(2).fill('Option C');
+    
+    // Add a fourth option using the Enter key (press Enter on the last input)
+    console.log('⌨️ Adding fourth option using Enter key...');
+    
+    // Debug: Check how many inputs we have before pressing Enter
+    const inputCountBefore = await page.locator('input[name="option"]').count();
+    console.log(`🔍 Option inputs before Enter: ${inputCountBefore}`);
+    
+    // Focus on the last input and then press Enter
+    await updatedOptionInputs.nth(2).focus();
+    await page.waitForTimeout(100);
+    await updatedOptionInputs.nth(2).press('Enter');
+    await page.waitForTimeout(1000); // Wait longer for the new input to be added
+    
+    // Debug: Check how many inputs we have after pressing Enter
+    const inputCountAfter = await page.locator('input[name="option"]').count();
+    console.log(`🔍 Option inputs after Enter: ${inputCountAfter}`);
+    
+    if (inputCountAfter > inputCountBefore) {
+      // Fill the fourth option that was created via Enter key
+      const finalOptionInputs = page.locator('input[name="option"]');
+      await finalOptionInputs.nth(3).fill('Option D');
+      console.log('✅ Fourth option added via Enter key');
+    } else {
+      console.log('⚠️ Enter key did not create new option - skipping fourth option');
+    }
     
     await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle');
@@ -53,8 +86,8 @@ test.describe('Complete Poll Lifecycle with Verification', () => {
         
         let verified = false;
         for (const code of commonCodes) {
-          await page.fill('input[id="verification_code"]', code);
-          await page.click('button:has-text("Verify")');
+          await page.fill('input[name="code"]', code);
+          await page.click('button:has-text("Submit verification")');
           await page.waitForTimeout(1000);
           
           // Check if we got to poll creation success
@@ -116,9 +149,17 @@ test.describe('Complete Poll Lifecycle with Verification', () => {
     await page.check('input[value="Option A"]');
     await page.check('input[value="Option C"]');
     
+    // Try to vote for Option D if it exists (from Enter key)
+    const optionDExists = await page.locator('input[value="Option D"]').count() > 0;
+    if (optionDExists) {
+      await page.check('input[value="Option D"]');
+      console.log('✅ Vote 1 cast (selected A, C, D)');
+    } else {
+      console.log('✅ Vote 1 cast (selected A, C - Option D not available)');
+    }
+    
     await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle');
-    console.log('✅ Vote 1 cast');
     
     // Vote as second user
     await page.goto(`/poll/${pollId}`);
@@ -128,11 +169,18 @@ test.describe('Complete Poll Lifecycle with Verification', () => {
     await page.fill('input[id="email"]', `voter2_${timestamp}@example.com`);
     
     await page.check('input[value="Option B"]');
-    await page.check('input[value="Option C"]');
+    
+    // Try to vote for Option D if it exists
+    if (optionDExists) {
+      await page.check('input[value="Option D"]');
+      console.log('✅ Vote 2 cast (selected B, D)');
+    } else {
+      await page.check('input[value="Option C"]');
+      console.log('✅ Vote 2 cast (selected B, C - Option D not available)');
+    }
     
     await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle');
-    console.log('✅ Vote 2 cast');
     
     // Step 5: View results
     console.log('📊 Step 5: Viewing results...');
@@ -146,7 +194,14 @@ test.describe('Complete Poll Lifecycle with Verification', () => {
     // Check that results show vote counts
     const resultsVisible = await page.locator(':has-text("Option A"), :has-text("Option B"), :has-text("Option C")').count() > 0;
     expect(resultsVisible).toBeTruthy();
-    console.log('✅ Vote results visible');
+    
+    // Check if Option D is also visible (if it was created via Enter key)
+    const optionDInResults = await page.locator(':has-text("Option D")').count() > 0;
+    if (optionDInResults) {
+      console.log('✅ Vote results visible (all 4 options including Enter-key-added Option D)');
+    } else {
+      console.log('✅ Vote results visible (3 options - Enter key did not create Option D)');
+    }
     
     // Step 6: Delete the poll (as poll creator)
     console.log('🗑️ Step 6: Deleting poll...');

@@ -14,75 +14,63 @@ test.describe('Complete User Journey', () => {
     await expect(page.locator('form')).toBeVisible();
     
     // Step 3: Create a poll
-    const titleInput = page.locator('input[name="title"], input[id*="title"], #poll-title');
-    await titleInput.fill(pollTitle);
+    const testEmail = `test${timestamp}@example.com`;
+    await page.fill('input[id="email"]', testEmail);
+    await page.fill('input[id="title"]', pollTitle);
+    await page.fill('textarea[id="description"]', 'Full E2E test poll description');
+    await page.fill('input[id="seats"]', '2');
     
-    const descriptionInput = page.locator('textarea[name="description"], textarea[id*="description"], #poll-description');
-    if (await descriptionInput.count() > 0) {
-      await descriptionInput.fill('Full E2E test poll description');
-    }
-    
-    const seatsInput = page.locator('input[name="seats"], input[id*="seats"], input[type="number"]');
-    if (await seatsInput.count() > 0) {
-      await seatsInput.fill('2');
-    }
-    
-    // Add poll options
-    const optionInputs = page.locator('input[name*="option"], input[id*="option"]').first();
-    await optionInputs.fill('Candidate Alpha');
-    
-    // Add second option
-    const addOptionBtn = page.locator('button:has-text("add"), button[id*="add"], [hx-post*="add-option"]');
-    if (await addOptionBtn.count() > 0) {
-      await addOptionBtn.click();
-      await page.waitForTimeout(1000); // Wait for dynamic content
-      
-      const secondOption = page.locator('input[name*="option"], input[id*="option"]').nth(1);
-      if (await secondOption.count() > 0) {
-        await secondOption.fill('Candidate Beta');
-      }
-    }
+    // Add poll options using the correct approach
+    const optionInputs = page.locator('input[name="option"]');
+    await optionInputs.nth(0).fill('Candidate Alpha');
+    await optionInputs.nth(1).fill('Candidate Beta');
     
     // Add third option
-    if (await addOptionBtn.count() > 0) {
-      await addOptionBtn.click();
-      await page.waitForTimeout(1000);
-      
-      const thirdOption = page.locator('input[name*="option"], input[id*="option"]').nth(2);
-      if (await thirdOption.count() > 0) {
-        await thirdOption.fill('Candidate Gamma');
-      }
-    }
+    await page.click('button[hx-post="/add-option"]');
+    await page.waitForTimeout(500);
+    const updatedOptionInputs = page.locator('input[name="option"]');
+    await updatedOptionInputs.nth(2).fill('Candidate Gamma');
     
     // Submit poll creation
-    const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("create"), button:has-text("submit")');
-    await submitBtn.click();
-    
+    await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
     
-    // Step 4: Extract poll ID and verify poll was created
-    let pollId = null;
-    const currentUrl = page.url();
-    const pollIdMatch = currentUrl.match(/\/vote\/(\d+)|\/results\/(\d+)|poll[_-]?id[=:](\d+)|id[=:](\d+)/);
-    if (pollIdMatch) {
-      pollId = pollIdMatch[1] || pollIdMatch[2] || pollIdMatch[3] || pollIdMatch[4];
+    // Handle registration if needed
+    const needsRegistration = await page.locator(':has-text("do not have an account")').count() > 0;
+    if (needsRegistration) {
+      await page.fill('input[id="full_name"]', 'E2E Test User');
+      await page.fill('input[id="preferred_name"]', 'E2E');
+      await page.click('button:has-text("Send verification code")');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
     }
     
-    // If no poll ID found in URL, look for it in page content
-    if (!pollId) {
-      const pollIdElements = await page.locator(':has-text("poll"), :has-text("id"), a[href*="/vote/"], a[href*="/results/"]').all();
-      for (const element of pollIdElements) {
-        const text = await element.textContent();
-        const href = await element.getAttribute('href');
-        const match = (text + ' ' + (href || '')).match(/(\d+)/);
-        if (match) {
-          pollId = match[1];
-          break;
-        }
+    // Handle verification if needed
+    const needsVerification = await page.locator(':has-text("verification code")').count() > 0;
+    if (needsVerification) {
+      // Get verification code from test endpoint
+      const codeResponse = await page.request.get('/api/test/verification-code');
+      if (codeResponse.status() === 200) {
+        const codeData = await codeResponse.json();
+        await page.fill('input[name="code"]', codeData.verification_code);
+        await page.click('button:has-text("Submit verification")');
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
       }
     }
     
-    expect(pollId).toBeTruthy();
+    // Step 4: Extract poll ID from success page
+    const pageContent = await page.textContent('body');
+    const pollIdMatch = pageContent.match(/\/vote\/(\d+)/);
+    
+    if (!pollIdMatch) {
+      console.log('❌ Could not extract poll ID from page content');
+      console.log('Page content sample:', pageContent.substring(0, 500));
+    }
+    
+    expect(pollIdMatch).toBeTruthy();
+    const pollId = pollIdMatch[1];
     console.log(`Created poll with ID: ${pollId}`);
     
     // Step 5: Navigate to voting page
@@ -108,7 +96,7 @@ test.describe('Complete User Journey', () => {
     await page.waitForTimeout(2000);
     
     // Step 8: Verify vote was recorded
-    const hasVoteConfirmation = await page.locator(':has-text("success"), :has-text("recorded"), :has-text("thank"), :has-text("vote")').count() > 0;
+    const hasVoteConfirmation = await page.locator(':has-text("submitted"), :has-text("vote")').count() > 0;
     expect(hasVoteConfirmation).toBeTruthy();
     
     // Step 9: View results
@@ -126,43 +114,52 @@ test.describe('Complete User Journey', () => {
     // Create a poll first
     await page.goto('/makepoll');
     const timestamp = Date.now();
+    const testEmail = `multiuser${timestamp}@example.com`;
     
-    const titleInput = page.locator('input[name="title"], input[id*="title"], #poll-title');
-    await titleInput.fill(`Multi-User Test Poll ${timestamp}`);
-    
-    const seatsInput = page.locator('input[name="seats"], input[id*="seats"], input[type="number"]');
-    if (await seatsInput.count() > 0) {
-      await seatsInput.fill('1');
-    }
+    await page.fill('input[id="email"]', testEmail);
+    await page.fill('input[id="title"]', `Multi-User Test Poll ${timestamp}`);
+    await page.fill('input[id="seats"]', '1');
     
     // Add options
-    const optionInputs = page.locator('input[name*="option"], input[id*="option"]').first();
-    await optionInputs.fill('Option A');
+    const optionInputs = page.locator('input[name="option"]');
+    await optionInputs.nth(0).fill('Option A');
+    await optionInputs.nth(1).fill('Option B');
     
-    const addOptionBtn = page.locator('button:has-text("add"), button[id*="add"]');
-    if (await addOptionBtn.count() > 0) {
-      await addOptionBtn.click();
-      await page.waitForTimeout(1000);
-      const secondOption = page.locator('input[name*="option"], input[id*="option"]').nth(1);
-      if (await secondOption.count() > 0) {
-        await secondOption.fill('Option B');
+    // Submit
+    await page.click('button[type="submit"]');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+    
+    // Handle registration if needed
+    const needsRegistration = await page.locator(':has-text("do not have an account")').count() > 0;
+    if (needsRegistration) {
+      await page.fill('input[id="full_name"]', 'Multi Test User');
+      await page.fill('input[id="preferred_name"]', 'Multi');
+      await page.click('button:has-text("Send verification code")');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+    }
+    
+    // Handle verification if needed
+    const needsVerification = await page.locator(':has-text("verification code")').count() > 0;
+    if (needsVerification) {
+      const codeResponse = await page.request.get('/api/test/verification-code');
+      if (codeResponse.status() === 200) {
+        const codeData = await codeResponse.json();
+        await page.fill('input[name="code"]', codeData.verification_code);
+        await page.click('button:has-text("Submit verification")');
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
       }
     }
     
-    // Submit
-    const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("create"), button:has-text("submit")');
-    await submitBtn.click();
-    await page.waitForLoadState('networkidle');
-    
     // Extract poll ID
-    let pollId = null;
-    const currentUrl = page.url();
-    const pollIdMatch = currentUrl.match(/\/vote\/(\d+)|\/results\/(\d+)/);
-    if (pollIdMatch) {
-      pollId = pollIdMatch[1] || pollIdMatch[2];
-    }
+    const pageContent = await page.textContent('body');
+    const pollIdMatch = pageContent.match(/\/vote\/(\d+)/);
     
-    if (pollId) {
+    if (pollIdMatch) {
+      const pollId = pollIdMatch[1];
+      
       // Vote as first user
       await page.goto(`/vote/${pollId}`);
       const voteOptions = page.locator('input[type="checkbox"], input[type="radio"]');

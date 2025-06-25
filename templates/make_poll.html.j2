@@ -184,9 +184,8 @@ addInputEventListeners();
 
 // Re-initialize event listeners when new options are added via HTMX
 document.body.addEventListener('htmx:afterSwap', function(e) {
-  if (e.detail.target.querySelector('input[name="option"]')) {
-    addInputEventListeners();
-  }
+  // Always re-add listeners after any HTMX swap to ensure all inputs have handlers
+  addInputEventListeners();
 });
 </script>
 {% endblock %}

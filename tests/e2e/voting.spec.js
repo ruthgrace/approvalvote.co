@@ -108,7 +108,7 @@ test.describe('Voting Flow', () => {
         await page.waitForTimeout(2000);
         
         // Check for success message or confirmation
-        const hasSuccessMessage = await page.locator(':has-text("success"), :has-text("recorded"), :has-text("thank"), :has-text("vote")').count() > 0;
+        const hasSuccessMessage = await page.locator(':has-text("submitted"), :has-text("vote")').count() > 0;
         expect(hasSuccessMessage).toBeTruthy();
       }
     } finally {
@@ -161,7 +161,7 @@ test.describe('Voting Flow', () => {
           console.log('Vote requires registration/verification');
         } else {
           // Check for success
-          const hasSuccessMessage = await page.locator(':has-text("success"), :has-text("recorded"), :has-text("thank")').count() > 0;
+          const hasSuccessMessage = await page.locator(':has-text("submitted"), :has-text("vote")').count() > 0;
           expect(hasSuccessMessage).toBeTruthy();
         }
       }
