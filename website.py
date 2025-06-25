@@ -247,6 +247,10 @@ def new_user():
         verification_code = email_service.send_verification_email(email)
         print(f"🔐 Email service returned verification code: {verification_code}")
         
+        # Store verification code in session for later verification
+        session[VERIFICATION_CODE] = verification_code
+        print(f"📝 Stored verification code in session")
+        
         print("📝 Rendering verification code template...")
         template_response = render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function)
         print(f"📄 Template rendered successfully, length: {len(template_response)}")
@@ -401,6 +405,44 @@ def delete_poll_api(poll_id):
     except Exception as e:
         print(traceback.format_exc())
         return {"error": "An error occurred while deleting the poll"}, 500
+
+@app.route("/api/user", methods=["DELETE"])
+def delete_user_api():
+    """API endpoint to delete a user"""
+    try:
+        # Get email from request (could be from JSON body or form data)
+        email = None
+        if request.is_json:
+            email = request.json.get('email')
+        else:
+            email = request.form.get('email')
+        
+        if not email:
+            return {"error": "Email is required"}, 400
+        
+        # Delete the user (this will check if user exists)
+        db.delete_user(email)
+        
+        return {"message": f"User with email {email} deleted successfully"}, 200
+        
+    except ValueError as e:
+        return {"error": str(e)}, 404
+    except Exception as e:
+        print(traceback.format_exc())
+        return {"error": "An error occurred while deleting the user"}, 500
+
+@app.route("/api/test/verification-code", methods=["GET"])
+def get_test_verification_code():
+    """Get the last verification code (TEST ONLY - only works in development)"""
+    import os
+    if os.getenv('FLASK_ENV') != 'development':
+        return {"error": "This endpoint is only available in development mode"}, 403
+    
+    code = email_service.get_last_verification_code()
+    if code:
+        return {"verification_code": code}, 200
+    else:
+        return {"error": "No verification code available"}, 404
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=3000, debug=True)

@@ -35,3 +35,21 @@ def test_all_routes(client):
         rv = client.get(route)
         assert rv.status_code != 404, f"Route {route} not found"
         assert rv.status_code == 200, f"Route {route} returned {rv.status_code}"
+
+def test_delete_user_api_missing_email(client):
+    """Test user deletion API with missing email"""
+    rv = client.delete('/api/user', json={})
+    assert rv.status_code == 400
+    assert b'Email is required' in rv.data
+
+def test_delete_user_api_nonexistent_user(client):
+    """Test user deletion API with nonexistent user"""
+    rv = client.delete('/api/user', json={'email': 'nonexistent@example.com'})
+    assert rv.status_code == 404
+    assert b'User not found' in rv.data
+
+def test_delete_user_api_form_data(client):
+    """Test user deletion API with form data instead of JSON"""
+    rv = client.delete('/api/user', data={'email': 'nonexistent@example.com'})
+    assert rv.status_code == 404
+    assert b'User not found' in rv.data

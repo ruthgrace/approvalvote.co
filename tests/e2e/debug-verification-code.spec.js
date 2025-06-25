@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { getLastVerificationCode } = require('./utils/test-helpers');
 
 test.describe('Debug Verification Code', () => {
   test('should trigger verification and show the code in server output', async ({ page }) => {
@@ -94,21 +95,34 @@ test.describe('Debug Verification Code', () => {
     
     if (stillNeedsVerification) {
       console.log('');
-      console.log('🎯 NEXT STEPS:');
-      console.log('1. Look at the server output above');
-      console.log('2. Find the line that says "verification code is XXXX"');
-      console.log('3. Use that code in the main test');
-      console.log('');
+      console.log('🎯 Getting actual verification code from test endpoint...');
       
-      // Try one manual code to test the mechanism
-      console.log('Testing verification mechanism with code 1234...');
-      await page.fill('input[name="code"]', '1234');
-      await page.click('button:has-text("Submit verification")');
-      await page.waitForTimeout(2000);
+      // Get the actual verification code
+      const actualCode = await getLastVerificationCode(page);
+      console.log(`📲 Retrieved verification code: ${actualCode}`);
       
-      const afterVerification = await page.textContent('body');
-      console.log('Page after verification attempt:');
-      console.log(afterVerification.substring(0, 300) + '...');
+      if (actualCode) {
+        console.log('✅ Testing verification mechanism with ACTUAL code...');
+        await page.fill('input[name="code"]', actualCode);
+        await page.click('button:has-text("Submit verification")');
+        await page.waitForTimeout(3000);
+        
+        const afterVerification = await page.textContent('body');
+        console.log('📄 Page after verification attempt:');
+        console.log(afterVerification.substring(0, 500) + '...');
+        
+        // Check if verification was successful
+        const verificationSuccess = afterVerification.includes('Poll is ready') || 
+                                   afterVerification.includes('success') ||
+                                   afterVerification.includes('/vote/');
+        console.log(`🎉 Verification successful: ${verificationSuccess}`);
+      } else {
+        console.log('❌ Could not retrieve verification code from test endpoint');
+        console.log('💡 MANUAL STEPS:');
+        console.log('1. Look at the server output above');
+        console.log('2. Find the line that says "verification code is XXXX"');
+        console.log('3. Use that code in the main test');
+      }
     }
   });
 }); 

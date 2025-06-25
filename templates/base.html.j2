@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Approval Voting</title>
+  <title>{% block title %}Approval Voting{% endblock %}</title>
   <meta property="og:image" content="{{ thumbnail_url if thumbnail_url is not none else 'https://approvalvote.co/static/high-five-photo.jpg' }}" />
   <meta property="og:title" content="{{ page_title if page_title is not none else 'ApprovalVote.Co' }}" />
   <meta property="og:description" content="{{ page_description if page_description is not none else "You can't please everyone, but with approval voting you can get close!" }}" />

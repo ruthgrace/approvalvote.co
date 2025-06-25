@@ -197,10 +197,30 @@ async function debugScreenshot(page, name) {
   });
 }
 
+/**
+ * Gets the last verification code from the test endpoint
+ * @param {import('@playwright/test').Page} page 
+ * @returns {Promise<string|null>} Verification code or null if not available
+ */
+async function getLastVerificationCode(page) {
+  try {
+    const response = await page.request.get('/api/test/verification-code');
+    if (response.ok()) {
+      const data = await response.json();
+      return data.verification_code;
+    }
+    return null;
+  } catch (error) {
+    console.log('Failed to get verification code:', error);
+    return null;
+  }
+}
+
 module.exports = {
   createTestPoll,
   extractPollId,
   castVote,
   waitForElement,
-  debugScreenshot
+  debugScreenshot,
+  getLastVerificationCode
 }; 

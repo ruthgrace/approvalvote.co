@@ -1,9 +1,13 @@
 import random
 import smtplib
 import ssl
+import os
 from email.message import EmailMessage
 
 class EmailService:
+    # Class variable to store last verification code for testing
+    _last_verification_code = None
+    
     def __init__(self, noreply_email, noreply_password):
         self.noreply_email = noreply_email
         self.noreply_password = noreply_password
@@ -12,10 +16,21 @@ class EmailService:
 
     def generate_verification_code(self):
         return "".join([random.choice(self.DIGITS) for _ in range(self.VERIFICATION_CODE_LENGTH)])
+    
+    @classmethod
+    def get_last_verification_code(cls):
+        """Get the last verification code generated (for testing only)"""
+        return cls._last_verification_code
 
     def send_verification_email(self, recipient_email):
         code = self.generate_verification_code()
         print(f"verification code is {code}")
+        
+        # Store verification code for test access
+        if os.getenv('FLASK_ENV') == 'development':
+            EmailService._last_verification_code = code
+            print(f"🧪 TEST MODE: Stored verification code {code} for test access")
+        
         message = EmailMessage()
         message["Subject"] = "ApprovalVote.Co Verification Code"
         message["From"] = self.noreply_email

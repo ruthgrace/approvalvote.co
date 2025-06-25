@@ -119,4 +119,28 @@ def test_delete_poll_unauthorized():
     db = PollDatabase(mock_supabase)
     
     with pytest.raises(ValueError, match="User is not authorized to delete this poll"):
-        db.delete_poll(poll_id=1, user_id=123) 
+        db.delete_poll(poll_id=1, user_id=123)
+
+def test_delete_user_success():
+    """Test deleting a user when user exists"""
+    mock_supabase = Mock()
+    # Mock that user exists
+    mock_supabase.table().select().eq().execute.return_value.data = [{'id': 123}]
+    
+    db = PollDatabase(mock_supabase)
+    result = db.delete_user('test@example.com')
+    
+    assert result is True
+    # Should call delete 4 times (votes, poll admins, form data, user)
+    assert mock_supabase.table().delete().eq().execute.call_count == 4
+
+def test_delete_user_not_found():
+    """Test deleting a user when user does NOT exist"""
+    mock_supabase = Mock()
+    # Mock that user does NOT exist
+    mock_supabase.table().select().eq().execute.return_value.data = []
+    
+    db = PollDatabase(mock_supabase)
+    
+    with pytest.raises(ValueError, match="User not found"):
+        db.delete_user('nonexistent@example.com') 

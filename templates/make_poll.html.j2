@@ -1,5 +1,7 @@
 {% extends "base.html.j2" %}
 
+{% block title %}Create Poll - Approval Voting{% endblock %}
+
 {% block content %}
 <div id="poll-form-container" class="mt-8">
   <form id="poll-form" hx-post="/pollsubmit" hx-target="closest div" hx-swap="outerHTML">

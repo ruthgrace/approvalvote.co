@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { getLastVerificationCode } = require('./utils/test-helpers');
 
 test.describe('Poll Creation', () => {
   test('should load the make poll page', async ({ page }) => {
@@ -13,53 +14,82 @@ test.describe('Poll Creation', () => {
   test('should create a poll successfully', async ({ page }) => {
     await page.goto('/makepoll');
     
-    // Fill in poll details - adapt these selectors based on your actual form
-    const titleInput = page.locator('input[name="title"], input[id*="title"], #poll-title');
-    if (await titleInput.count() > 0) {
-      await titleInput.fill('Test Poll for E2E');
+    // Generate unique email for this test
+    const timestamp = Date.now();
+    const testEmail = `polltest${timestamp}@example.com`;
+    
+    // Fill in poll details including email
+    await page.fill('input[id="email"]', testEmail);
+    await page.fill('input[id="title"]', 'Test Poll for E2E');
+    await page.fill('textarea[id="description"]', 'This is a test poll created by Playwright E2E tests');
+    await page.fill('input[id="seats"]', '2');
+    
+    // Fill poll options
+    const optionInputs = page.locator('input[name="option"]');
+    await optionInputs.nth(0).fill('Option 1');
+    await optionInputs.nth(1).fill('Option 2');
+    
+    // Submit the form
+    console.log('📝 Clicking submit button...');
+    await page.click('button[type="submit"]');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000); // Extra wait to see server response
+    
+    // Check what happened after submission
+    const afterSubmitContent = await page.textContent('body');
+    console.log('📄 Content after submit:', afterSubmitContent.substring(0, 300));
+    
+    // Check if registration is needed
+    const needsRegistration = await page.locator(':has-text("do not have an account")').count() > 0;
+    console.log('🔍 Registration needed:', needsRegistration);
+    
+    if (needsRegistration) {
+      // Fill registration form
+      console.log('👤 Filling registration form...');
+      await page.fill('input[id="full_name"]', 'Test User');
+      await page.fill('input[id="preferred_name"]', 'Test');
+      await page.click('button:has-text("Send verification code")');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
     }
     
-    const descriptionInput = page.locator('textarea[name="description"], textarea[id*="description"], #poll-description');
-    if (await descriptionInput.count() > 0) {
-      await descriptionInput.fill('This is a test poll created by Playwright E2E tests');
-    }
+    // Check if verification is needed
+    const needsVerification = await page.locator(':has-text("verification code")').count() > 0;
+    console.log('🔍 Verification needed:', needsVerification);
     
-    // Look for seats/winners input
-    const seatsInput = page.locator('input[name="seats"], input[id*="seats"], input[type="number"]');
-    if (await seatsInput.count() > 0) {
-      await seatsInput.fill('2');
-    }
-    
-    // Add poll options - look for option inputs or buttons to add options
-    const optionInputs = page.locator('input[name*="option"], input[id*="option"]').first();
-    if (await optionInputs.count() > 0) {
-      await optionInputs.fill('Option 1');
-      
-      // Try to add more options if there's an "add option" button
-      const addOptionBtn = page.locator('button:has-text("add"), button[id*="add"]');
-      if (await addOptionBtn.count() > 0) {
-        await addOptionBtn.click();
-        const secondOption = page.locator('input[name*="option"], input[id*="option"]').nth(1);
-        if (await secondOption.count() > 0) {
-          await secondOption.fill('Option 2');
-        }
+    if (needsVerification) {
+      // Get and use actual verification code
+      console.log('📲 Getting verification code...');
+      const verificationCode = await getLastVerificationCode(page);
+      console.log('✅ Got verification code:', verificationCode);
+      if (verificationCode) {
+        await page.fill('input[name="code"]', verificationCode);
+        await page.click('button:has-text("Submit verification")');
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
+        
+        const afterVerification = await page.textContent('body');
+        console.log('📄 Content after verification:', afterVerification.substring(0, 300));
       }
     }
     
-    // Submit the form
-    const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("create"), button:has-text("submit")');
-    await submitBtn.click();
-    
-    // Check for success - could be redirect or success message
-    await page.waitForLoadState('networkidle');
-    
-    // Verify success (adapt based on your success flow)
+    // Verify success (either success page content or success URLs)
+    const pageContent = await page.textContent('body');
     const currentUrl = page.url();
-    const hasSuccessIndicator = currentUrl.includes('success') || 
-                               await page.locator(':has-text("success"), :has-text("created")').count() > 0 ||
-                               currentUrl.includes('vote/') ||
-                               currentUrl.includes('results/');
     
+    // Debug: log what we're seeing
+    console.log('🔍 Final URL:', currentUrl);
+    console.log('📄 Page content sample:', pageContent.substring(0, 500));
+    
+    const hasSuccessIndicator = currentUrl.includes('success') || 
+                               pageContent.includes('Poll is ready') ||
+                               pageContent.includes('success') ||
+                               pageContent.includes('created') ||
+                               currentUrl.includes('vote/') ||
+                               currentUrl.includes('results/') ||
+                               pageContent.includes('/vote/');
+    
+    console.log('✅ Success indicator found:', hasSuccessIndicator);
     expect(hasSuccessIndicator).toBeTruthy();
   });
 
