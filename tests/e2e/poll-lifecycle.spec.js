@@ -4,13 +4,22 @@ const { extractPollId, getLastVerificationCode } = require('./utils/test-helpers
 test.describe('Complete Poll Lifecycle', () => {
   test('should demonstrate complete poll lifecycle - create, vote, view results, delete', async ({ page }) => {
     const timestamp = Date.now();
-    const randomNum = Math.floor(Math.random() * 10000);
-    const testEmail = `lifecycle${timestamp}${randomNum}@example.com`;
+    const testEmail = 'noreply@approvalvote.co';
     const pollTitle = `Complete Lifecycle Test Poll ${timestamp}`;
     
     console.log('🔄 COMPLETE POLL LIFECYCLE TEST');
     console.log('==============================');
     console.log(`📧 Test email: ${testEmail}`);
+    
+    // Clean existing user to ensure clean state
+    try {
+      await page.request.delete('/api/user', {
+        data: { email: testEmail },
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      // User might not exist, which is fine
+    }
     
     // STEP 1: CREATE POLL
     console.log('📝 Step 1: Creating poll...');
@@ -45,7 +54,8 @@ test.describe('Complete Poll Lifecycle', () => {
       await finalOptionInputs.nth(3).fill('Candidate Delta');
       console.log('✅ Fourth option added via Enter key');
     } else {
-      console.log('⚠️ Enter key did not create new option - continuing with 3 options');
+      console.log('❌ Enter key did not create new option - test failed');
+      expect(inputCountAfter).toBeGreaterThan(3);
     }
     
     // Submit poll creation
@@ -53,60 +63,34 @@ test.describe('Complete Poll Lifecycle', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
     
-    // STEP 2: HANDLE USER REGISTRATION AND VERIFICATION
-    console.log('👤 Step 2: Handling registration and verification...');
+    // STEP 2A: HANDLE NEW USER REGISTRATION
+    console.log('👤 Step 2A: Testing new user registration flow...');
     
     const needsRegistration = await page.locator(':has-text("do not have an account")').count() > 0;
-    console.log(`Registration required: ${needsRegistration}`);
+    console.log(`Registration form visible: ${needsRegistration}`);
+    expect(needsRegistration).toBeTruthy(); // Should need registration since user was cleaned up
     
-    if (needsRegistration) {
-      await page.fill('input[id="full_name"]', 'Lifecycle Test User');
-      await page.fill('input[id="preferred_name"]', 'Lifecycle');
-      
-      await page.click('button:has-text("Send verification code")');
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(3000);
-      
-      // Handle verification if needed
-      const needsVerification = await page.locator(':has-text("verification code")').count() > 0;
-      console.log(`Verification required: ${needsVerification}`);
-      
-      if (needsVerification) {
-        const verificationCode = await getLastVerificationCode(page);
-        console.log(`Retrieved verification code: ${verificationCode}`);
-        
-        if (verificationCode) {
-          await page.fill('input[name="code"]', verificationCode);
-          await page.click('button:has-text("Submit verification")');
-          await page.waitForLoadState('networkidle');
-          await page.waitForTimeout(2000);
-          console.log('✅ Verification successful');
-        } else {
-          // Try common verification codes as fallback
-          const commonCodes = ['123456', '000000', '111111', '999999'];
-          let verified = false;
-          
-          for (const code of commonCodes) {
-            await page.fill('input[name="code"]', code);
-            await page.click('button:has-text("Submit verification")');
-            await page.waitForTimeout(1000);
-            
-            const success = await page.locator(':has-text("Poll created successfully"), :has-text("Your poll has been created")').count() > 0;
-            if (success) {
-              console.log(`✅ Verification successful with fallback code: ${code}`);
-              verified = true;
-              break;
-            }
-          }
-          
-          if (!verified) {
-            console.log('⚠️ Could not verify with any codes - skipping test');
-            test.skip('Could not complete verification');
-            return;
-          }
-        }
-      }
-    }
+    await page.fill('input[id="full_name"]', 'Lifecycle Test User');
+    await page.fill('input[id="preferred_name"]', 'Lifecycle');
+    
+    await page.click('button:has-text("Send verification code")');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
+    
+    // Should get verification form after registration
+    const verificationAfterReg = await page.locator(':has-text("verification code")').count() > 0;
+    console.log(`Verification form after registration: ${verificationAfterReg}`);
+    expect(verificationAfterReg).toBeTruthy();
+    
+    const verificationCode = await getLastVerificationCode(page);
+    console.log(`Retrieved verification code: ${verificationCode}`);
+    expect(verificationCode).toBeTruthy();
+    
+    await page.fill('input[name="code"]', verificationCode);
+    await page.click('button:has-text("Submit verification")');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+    console.log('✅ Registration and verification successful');
     
     // STEP 3: EXTRACT POLL ID
     console.log('🆔 Step 3: Extracting poll ID...');
@@ -161,21 +145,23 @@ test.describe('Complete Poll Lifecycle', () => {
     await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle');
     
-    // Vote 2: Second user (different browser context)
+    // Vote 2: Same email (noreply@approvalvote.co) in NEW browser context - should NOT require verification
+    console.log('🔄 Vote 2: Testing same email vote update in new context...');
     const context2 = await page.context().browser().newContext();
     const page2 = await context2.newPage();
     await page2.goto(`/vote/${pollId}`);
     await page2.waitForLoadState('networkidle');
     
-    // Fill voter info if fields are present (optional)
+    // Fill voter info with the same email as poll creator (should update their existing vote)
     const fullNameInput2 = page2.locator('input[id="full_name"]');
     const emailInput2 = page2.locator('input[id="email"]');
     
     if (await fullNameInput2.count() > 0) {
-      await fullNameInput2.fill('Voter Two');
+      await fullNameInput2.fill('Poll Creator Voting');
     }
     if (await emailInput2.count() > 0) {
-      await emailInput2.fill(`voter2_${timestamp}@example.com`);
+      await emailInput2.fill(testEmail); // Same email as poll creator - should update vote, not require verification
+      console.log('📧 Using poll creator email - should update existing vote without verification');
     }
     
     const voteOptions2 = page2.locator('input[type="checkbox"], input[type="radio"]');
@@ -185,45 +171,89 @@ test.describe('Complete Poll Lifecycle', () => {
       await voteOptions2.nth(1).check(); // Second option (Beta)
       if (optionCount2 > 3) {
         await voteOptions2.nth(3).check(); // Fourth option (Delta)
-        console.log('✅ Vote 2 cast (options 2, 4)');
+        console.log('✅ Vote 2 options selected (2, 4) - this should UPDATE the poll creator\'s vote');
       } else if (optionCount2 > 2) {
         await voteOptions2.nth(2).check(); // Third option (Gamma)
-        console.log('✅ Vote 2 cast (options 2, 3)');
+        console.log('✅ Vote 2 options selected (2, 3) - this should UPDATE the poll creator\'s vote');
       } else {
-        console.log('✅ Vote 2 cast (option 2)');
+        console.log('✅ Vote 2 options selected (2) - this should UPDATE the poll creator\'s vote');
       }
     }
     
     await page2.click('button[type="submit"]');
     await page2.waitForLoadState('networkidle');
+    await page2.waitForTimeout(2000);
     
-    // Vote 3: Third user (different browser context)
+    // Check that verification is NOT required (same email = already verified globally)
+    const needsVerification2 = await page2.locator(':has-text("verification code")').count() > 0;
+    const currentUrl2 = page2.url();
+    console.log(`📍 After submitting vote, page URL: ${currentUrl2}`);
+    console.log(`🔍 Verification form present: ${needsVerification2}`);
+    
+    if (!needsVerification2) {
+      console.log('✅ CORRECT: Same email does not require verification (already verified globally)');
+      
+      // Check for vote success confirmation
+      const pageContent = await page2.content();
+      const hasThankYou = pageContent.includes('thank you') || pageContent.includes('Thank you');
+      const hasVoteSuccess = pageContent.includes('vote') && (pageContent.includes('success') || pageContent.includes('cast'));
+      console.log(`   Vote success confirmation: ${hasThankYou || hasVoteSuccess}`);
+      
+      if (hasThankYou || hasVoteSuccess) {
+        console.log('✅ Vote 2 successfully updated (same email = vote update, not new vote)');
+      }
+    } else {
+      console.log('❌ UNEXPECTED: Same email required verification - this suggests a bug');
+      console.log('   Expected: Same email should be already verified globally');
+      console.log('   Got: Verification required for already-verified email');
+      
+      // Still handle verification if it unexpectedly appears
+      const verificationCode2 = await getLastVerificationCode(page2);
+      if (verificationCode2) {
+        await page2.fill('input[name="code"]', verificationCode2);
+        await page2.click('button:has-text("Submit verification")');
+        await page2.waitForLoadState('networkidle');
+        await page2.waitForTimeout(2000);
+        console.log('⚠️ Completed unexpected verification');
+      }
+    }
+    
+    // Vote 3: Anonymous vote (no email) - should not require verification
+    console.log('👤 Vote 3: Testing anonymous voting...');
     const context3 = await page.context().browser().newContext();
     const page3 = await context3.newPage();
     await page3.goto(`/vote/${pollId}`);
     await page3.waitForLoadState('networkidle');
     
-    // Fill voter info if fields are present (optional)
+    // Fill name but deliberately skip email for anonymous voting
     const fullNameInput3 = page3.locator('input[id="full_name"]');
     const emailInput3 = page3.locator('input[id="email"]');
     
     if (await fullNameInput3.count() > 0) {
-      await fullNameInput3.fill('Voter Three');
+      await fullNameInput3.fill('Anonymous Voter');
     }
-    if (await emailInput3.count() > 0) {
-      await emailInput3.fill(`voter3_${timestamp}@example.com`);
-    }
+    // Deliberately NOT filling email to test anonymous voting
+    console.log('👤 Skipping email for anonymous vote');
     
     const voteOptions3 = page3.locator('input[type="checkbox"], input[type="radio"]');
     const optionCount3 = await voteOptions3.count();
     
     if (optionCount3 > 0) {
       await voteOptions3.nth(0).check(); // First option (Alpha)
-      console.log('✅ Vote 3 cast (option 1 only)');
+      console.log('✅ Vote 3 options selected (1)');
     }
     
     await page3.click('button[type="submit"]');
     await page3.waitForLoadState('networkidle');
+    await page3.waitForTimeout(2000);
+    
+    // Anonymous vote should not require verification
+    const needsVerification3 = await page3.locator(':has-text("verification code")').count() > 0;
+    if (!needsVerification3) {
+      console.log('✅ Anonymous vote completed without verification (as expected)');
+    } else {
+      console.log('⚠️ Anonymous vote unexpectedly required verification');
+    }
     
     // STEP 5: VIEW RESULTS
     console.log('📊 Step 5: Viewing results...');
@@ -274,17 +304,43 @@ test.describe('Complete Poll Lifecycle', () => {
     await page3.close();
     await context3.close();
     
+    // Cleanup the user we created as well
+    try {
+      const userDeleteResponse = await page.request.delete('/api/user', {
+        data: { email: testEmail },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log(`🧹 User cleanup: User ${testEmail} deletion status: ${userDeleteResponse.status()}`);
+    } catch (error) {
+      console.log(`⚠️ User cleanup warning: Could not delete user ${testEmail}`);
+    }
+    
     console.log('');
     console.log('🎉 COMPLETE LIFECYCLE TEST PASSED!');
     console.log('✅ Poll created with email verification');
-    console.log('✅ Multiple votes cast from different users');
+    console.log('✅ Vote testing completed:');
+    console.log('   📝 Vote 1: Anonymous voter (voter1@example.com)');
+    console.log('   📝 Vote 2: Poll creator (noreply@approvalvote.co) - UPDATED their vote');
+    console.log('   📝 Vote 3: Anonymous voter (no email)'); 
+    console.log('   📊 Expected total: 3 unique votes (same email = vote update, not duplicate)');
     console.log('✅ Results viewed and verified');
     console.log('✅ Poll deleted and deletion verified');
+    console.log('✅ User cleaned up');
   });
 
   test('should handle multiple votes from different users', async ({ page, context }) => {
     const timestamp = Date.now();
-    const testEmail = `multiuser${timestamp}@example.com`;
+    const testEmail = 'noreply@approvalvote.co';
+    
+    // Clean existing user to ensure clean state
+    try {
+      await page.request.delete('/api/user', {
+        data: { email: testEmail },
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      // User might not exist, which is fine
+    }
     
     // Create poll
     await page.goto('/makepoll');

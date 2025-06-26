@@ -96,14 +96,14 @@ test.describe('Poll Creation Form', () => {
     optionInputs = page.locator('input[name="option"]');
     await expect(optionInputs).toHaveCount(3);
     
-    // Test Enter key functionality
+    // Test Enter key functionality - pressing Enter should add a 4th option
     await optionInputs.nth(2).fill('Third Option');
     await optionInputs.nth(2).press('Enter');
     await page.waitForTimeout(1000);
     
-    // May or may not add a 4th option depending on implementation
+    // Should now have exactly 4 options after pressing Enter
     const finalCount = await page.locator('input[name="option"]').count();
-    expect(finalCount).toBeGreaterThanOrEqual(3);
+    expect(finalCount).toBe(4);
   });
 
   test('should validate seats number', async ({ page }) => {

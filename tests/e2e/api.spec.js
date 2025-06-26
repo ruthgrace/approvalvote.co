@@ -3,81 +3,91 @@ const { extractPollId, getLastVerificationCode } = require('./utils/test-helpers
 
 test.describe('API Tests', () => {
   test('poll deletion API should work correctly', async ({ page }) => {
-    const testEmail = `apidelete${Date.now()}@example.com`;
+    const testEmail = 'noreply@approvalvote.co';
     
     console.log('🗑️ POLL DELETION API TEST');
     console.log('=========================');
     console.log(`📧 Test email: ${testEmail}`);
     
-    // Create a poll through the web interface to ensure proper user flow
-    await page.goto('/makepoll');
-    
-    // Fill out the poll form
-    await page.fill('input[id="email"]', testEmail);
-    await page.fill('input[id="title"]', 'API Test Poll for Deletion');
-    await page.fill('textarea[id="description"]', 'This poll will be deleted via API');
-    await page.fill('input[id="seats"]', '1');
-    
-    // Fill the options
-    const optionInputs = page.locator('input[name="option"]');
-    await optionInputs.nth(0).fill('API Option A');
-    await optionInputs.nth(1).fill('API Option B');
-    
-    // Submit the form
-    await page.click('button[type="submit"]');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-    
-    // Handle registration if needed
-    const needsRegistration = await page.locator(':has-text("do not have an account")').count() > 0;
-    if (needsRegistration) {
-      await page.fill('input[id="full_name"]', 'API Test User');
-      await page.fill('input[id="preferred_name"]', 'APITest');
-      await page.click('button:has-text("Send verification code")');
+    try {
+      // Create poll first
+      console.log('📝 Creating poll to test deletion...');
+      await page.goto('/makepoll');
+      
+      await page.fill('input[id="email"]', testEmail);
+      await page.fill('input[id="title"]', `API Delete Test Poll ${Date.now()}`);
+      await page.fill('textarea[id="description"]', 'Testing poll deletion via API');
+      await page.fill('input[id="seats"]', '1');
+      
+      const optionInputs = page.locator('input[name="option"]');
+      await optionInputs.nth(0).fill('Delete Option A');
+      await optionInputs.nth(1).fill('Delete Option B');
+      
+      await page.click('button[type="submit"]');
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(2000);
-    }
-    
-    // Handle verification if needed
-    const needsVerification = await page.locator(':has-text("verification code")').count() > 0;
-    if (needsVerification) {
-      const verificationCode = await getLastVerificationCode(page);
-      if (verificationCode) {
-        await page.fill('input[name="code"]', verificationCode);
-        await page.click('button:has-text("Submit verification")');
+      
+      // Handle any registration/verification if needed
+      const needsRegistration = await page.locator(':has-text("do not have an account")').count() > 0;
+      const needsVerification = await page.locator('input[name="code"], :has-text("verification code"), :has-text("A verification code has been sent")').count() > 0;
+      
+      if (needsRegistration) {
+        await page.fill('input[id="full_name"]', 'API Test User');
+        await page.fill('input[id="preferred_name"]', 'APITest');
+        await page.click('button:has-text("Send verification code")');
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
       }
+      
+      if (needsVerification || await page.locator('input[name="code"]').count() > 0) {
+        const verificationCode = await getLastVerificationCode(page);
+        if (verificationCode) {
+          await page.fill('input[name="code"]', verificationCode);
+          await page.click('button:has-text("Submit verification")');
+          await page.waitForLoadState('networkidle');
+          await page.waitForTimeout(2000);
+        }
+      }
+      
+      // Extract poll ID
+      const pollId = await extractPollId(page);
+      expect(pollId).toBeTruthy();
+      console.log(`✅ Poll created with ID: ${pollId}`);
+      
+      // Test poll deletion via API
+      console.log('🗑️ Testing poll deletion API...');
+      const deleteResponse = await page.request.delete(`/api/poll/${pollId}`, {
+        data: { email: testEmail },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      expect(deleteResponse.status()).toBe(200);
+      const responseData = await deleteResponse.json();
+      expect(responseData.message).toContain('deleted successfully');
+      console.log('✅ Poll deleted successfully via API');
+      
+      // Verify poll deletion
+      console.log('🔍 Verifying poll deletion...');
+      await page.goto(`/poll/${pollId}`);
+      await page.waitForLoadState('networkidle');
+      
+      const isDeleted = await page.locator(':has-text("not found"), :has-text("does not exist")').count() > 0 ||
+                       !page.url().includes(`/poll/${pollId}`);
+      
+      expect(isDeleted).toBeTruthy();
+      console.log('✅ Poll deletion verified - poll no longer accessible');
+    } finally {
+      // Cleanup: Delete the user if created
+      try {
+        const userDeleteResponse = await page.request.delete('/api/user', {
+          data: { email: testEmail },
+          headers: { 'Content-Type': 'application/json' }
+        });
+        console.log(`🧹 Cleanup: User ${testEmail} deletion status: ${userDeleteResponse.status()}`);
+      } catch (error) {
+        console.log(`⚠️ Cleanup warning: Could not delete user ${testEmail}`);
+      }
     }
-    
-    // Extract poll ID from the success page
-    const pollId = await extractPollId(page);
-    expect(pollId).toBeTruthy();
-    console.log(`✅ Poll created with ID: ${pollId}`);
-    
-    // Test the deletion API
-    console.log('🗑️ Testing poll deletion API...');
-    const deleteResponse = await page.request.delete(`/api/poll/${pollId}`, {
-      data: { email: testEmail },
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-    expect(deleteResponse.status()).toBe(200);
-    const responseData = await deleteResponse.json();
-    expect(responseData.message).toContain('deleted successfully');
-    console.log('✅ Poll deleted successfully via API');
-    
-    // Verify the poll is actually deleted by trying to access it
-    console.log('🔍 Verifying poll deletion...');
-    await page.goto(`/poll/${pollId}`);
-    
-    // Should show an error or redirect since poll no longer exists
-    const isDeleted = page.url().includes('404') || 
-                     await page.locator(':has-text("error"), :has-text("not found")').count() > 0 ||
-                     !page.url().includes(`/poll/${pollId}`);
-    
-    expect(isDeleted).toBeTruthy();
-    console.log('✅ Poll deletion verified - poll no longer accessible');
   });
 
   test('poll deletion API should reject unauthorized users', async ({ page }) => {
@@ -114,11 +124,21 @@ test.describe('API Tests', () => {
   });
 
   test('user deletion API should work correctly', async ({ page }) => {
-    const testEmail = `apiuserdelete${Date.now()}@example.com`;
+    const testEmail = 'noreply@approvalvote.co';
     
     console.log('🗑️ USER DELETION API TEST');
     console.log('=========================');
     console.log(`📧 Test email: ${testEmail}`);
+    
+    // Clean existing user to ensure clean state
+    try {
+      await page.request.delete('/api/user', {
+        data: { email: testEmail },
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      // User might not exist, which is fine
+    }
     
     try {
       // Create a user via API
@@ -225,13 +245,20 @@ test.describe('API Tests', () => {
   });
 
   test('user registration API should handle duplicate emails', async ({ page }) => {
-    const testEmail = `duplicate${Date.now()}@example.com`;
+    const testEmail = 'noreply@approvalvote.co';
     
     console.log('👥 DUPLICATE EMAIL TEST');
     console.log('======================');
     console.log(`📧 Test email: ${testEmail}`);
     
     try {
+      // First, delete the user to ensure clean state
+      console.log('🧹 Cleaning existing user...');
+      await page.request.delete('/api/user', {
+        data: { email: testEmail },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
       // Create user first time
       console.log('👤 Creating user (first time)...');
       const firstResponse = await page.request.post('/new_user', {
