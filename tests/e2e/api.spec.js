@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { extractPollId, getLastVerificationCode } = require('./utils/test-helpers');
+const { extractPollId, getLastVerificationCode, establishUserSession } = require('./utils/test-helpers');
 
 test.describe('API Tests', () => {
   test('poll deletion API should work correctly', async ({ page }) => {
@@ -130,32 +130,23 @@ test.describe('API Tests', () => {
     console.log('=========================');
     console.log(`📧 Test email: ${testEmail}`);
     
-    // Clean existing user to ensure clean state
+    // Clean existing user to ensure clean state (this might fail due to no session, which is fine)
     try {
       await page.request.delete('/api/user', {
         data: { email: testEmail },
         headers: { 'Content-Type': 'application/json' }
       });
     } catch (error) {
-      // User might not exist, which is fine
+      // User might not exist or no session, which is fine for cleanup
     }
     
     try {
-      // Create a user via API
-      console.log('👤 Creating user via API...');
-      const registerResponse = await page.request.post('/new_user', {
-        form: {
-          'email': testEmail,
-          'full_name': 'API Delete User',
-          'preferred_name': 'APIDelete',
-          'origin_function': 'new_poll'
-        }
-      });
+      // Establish session for the user first
+      console.log('🔐 Establishing user session...');
+      await establishUserSession(page, testEmail, 'API Delete User', 'APIDelete');
+      console.log('✅ Session established successfully');
       
-      expect(registerResponse.status()).toBe(200);
-      console.log('✅ User created successfully');
-      
-      // Delete the user via API
+      // Now delete the user via API with the established session
       console.log('🗑️ Deleting user via API...');
       const deleteResponse = await page.request.delete('/api/user', {
         data: { email: testEmail },
@@ -168,7 +159,7 @@ test.describe('API Tests', () => {
       console.log('✅ User deleted successfully via API');
       
     } finally {
-      // Cleanup
+      // Cleanup (this will likely fail since user was deleted, which is fine)
       try {
         await page.request.delete('/api/user', {
           data: { email: testEmail },
@@ -181,19 +172,54 @@ test.describe('API Tests', () => {
   });
 
   test('user deletion API should handle non-existent users', async ({ page }) => {
+    const nonExistentEmail = 'nonexistent-api@example.com';
+    
     console.log('🚫 NON-EXISTENT USER DELETION TEST');
     console.log('==================================');
     
-    const response = await page.request.delete('/api/user', {
-      data: { email: 'nonexistent-api@example.com' },
-      headers: { 'Content-Type': 'application/json' }
-    });
+    // We need a session to test user deletion, but we'll use a different email for the session
+    const sessionEmail = 'session@example.com';
     
-    expect(response.status()).toBe(404);
-    const responseData = await response.json();
-    expect(responseData.error).toContain('User not found');
+    try {
+      // Clean up any existing session user
+      await page.request.delete('/api/user', {
+        data: { email: sessionEmail },
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      // Expected to fail, ignore
+    }
     
-    console.log('✅ Non-existent user deletion properly handled');
+    try {
+      // Establish session with a different user
+      console.log('🔐 Establishing session with temporary user...');
+      await establishUserSession(page, sessionEmail, 'Session User', 'Session');
+      console.log('✅ Session established');
+      
+      // Now try to delete a non-existent user (should fail with 403 since authenticated user != target user)
+      const response = await page.request.delete('/api/user', {
+        data: { email: nonExistentEmail },
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      // Should fail with 403 (Forbidden) because authenticated user can only delete themselves
+      expect(response.status()).toBe(403);
+      const responseData = await response.json();
+      expect(responseData.error).toContain('Unauthorized');
+      
+      console.log('✅ Non-existent user deletion properly handled (403 Forbidden)');
+      
+    } finally {
+      // Cleanup session user
+      try {
+        await page.request.delete('/api/user', {
+          data: { email: sessionEmail },
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        // Cleanup might fail, which is fine
+      }
+    }
   });
 
   test('verification code API endpoint should work', async ({ page }) => {
@@ -252,12 +278,16 @@ test.describe('API Tests', () => {
     console.log(`📧 Test email: ${testEmail}`);
     
     try {
-      // First, delete the user to ensure clean state
+      // First, try to clean existing user (might fail due to no session, which is fine)
       console.log('🧹 Cleaning existing user...');
-      await page.request.delete('/api/user', {
-        data: { email: testEmail },
-        headers: { 'Content-Type': 'application/json' }
-      });
+      try {
+        await page.request.delete('/api/user', {
+          data: { email: testEmail },
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        // Expected to fail without session, ignore
+      }
       
       // Create user first time
       console.log('👤 Creating user (first time)...');
@@ -289,14 +319,17 @@ test.describe('API Tests', () => {
       console.log(`✅ Duplicate user creation handled (status: ${duplicateResponse.status()})`);
       
     } finally {
-      // Cleanup
+      // Cleanup with session - establish session first then delete
       try {
+        console.log('🧹 Establishing session for cleanup...');
+        await establishUserSession(page, testEmail, 'Cleanup User', 'Cleanup');
         await page.request.delete('/api/user', {
           data: { email: testEmail },
           headers: { 'Content-Type': 'application/json' }
         });
+        console.log('✅ Cleanup successful');
       } catch (error) {
-        // Cleanup might fail, which is fine
+        console.log('⚠️ Cleanup failed, user might not exist');
       }
     }
   });

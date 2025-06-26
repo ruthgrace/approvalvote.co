@@ -216,11 +216,64 @@ async function getLastVerificationCode(page) {
   }
 }
 
+/**
+ * Establishes a user session by creating and verifying a user through the normal browser flow
+ * This is needed for API requests that require session authentication
+ * @param {Page} page - Playwright page object
+ * @param {string} email - Email address for the user
+ * @param {string} fullName - Full name for the user (optional, defaults to "Test User")
+ * @param {string} preferredName - Preferred name for the user (optional, defaults to "Test")
+ * @returns {Promise<void>}
+ */
+async function establishUserSession(page, email, fullName = 'Test User', preferredName = 'Test') {
+  // Create and verify user through the normal flow to establish session
+  await page.goto('/makepoll');
+  
+  // Fill minimal poll form to trigger user registration/verification
+  await page.fill('input[id="email"]', email);
+  await page.fill('input[id="title"]', `Session Test ${Date.now()}`);
+  await page.fill('textarea[id="description"]', 'Establishing session');
+  await page.fill('input[id="seats"]', '1');
+  
+  const optionInputs = page.locator('input[name="option"]');
+  await optionInputs.nth(0).fill('Option A');
+  await optionInputs.nth(1).fill('Option B');
+  
+  await page.click('button[type="submit"]');
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(2000);
+  
+  // Handle registration if needed
+  const needsRegistration = await page.locator(':has-text("do not have an account")').count() > 0;
+  if (needsRegistration) {
+    await page.fill('input[id="full_name"]', fullName);
+    await page.fill('input[id="preferred_name"]', preferredName);
+    await page.click('button:has-text("Send verification code")');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+  }
+  
+  // Handle verification to establish session
+  const needsVerification = await page.locator(':has-text("verification code")').count() > 0;
+  if (needsVerification) {
+    const verificationCode = await getLastVerificationCode(page);
+    if (verificationCode) {
+      await page.fill('input[name="code"]', verificationCode);
+      await page.click('button:has-text("Submit verification")');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+    }
+  }
+  
+  // Session is now established for this email
+}
+
 module.exports = {
   createTestPoll,
   extractPollId,
   castVote,
   waitForElement,
   debugScreenshot,
-  getLastVerificationCode
+  getLastVerificationCode,
+  establishUserSession
 }; 

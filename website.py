@@ -408,22 +408,34 @@ def delete_poll_api(poll_id):
 
 @app.route("/api/user", methods=["DELETE"])
 def delete_user_api():
-    """API endpoint to delete a user"""
+    """API endpoint to delete a user - requires session authentication"""
     try:
-        # Get email from request (could be from JSON body or form data)
-        email = None
-        if request.is_json:
-            email = request.json.get('email')
-        else:
-            email = request.form.get('email')
+        # Check if user is authenticated via session
+        if EMAIL not in session:
+            return {"error": "Authentication required"}, 401
         
-        if not email:
+        # Get email from request (could be from JSON body or form data)
+        requested_email = None
+        if request.is_json:
+            requested_email = request.json.get('email')
+        else:
+            requested_email = request.form.get('email')
+        
+        if not requested_email:
             return {"error": "Email is required"}, 400
         
-        # Delete the user (this will check if user exists)
-        db.delete_user(email)
+        # Authorization check: Users can only delete themselves
+        authenticated_email = session[EMAIL]
+        if authenticated_email != requested_email:
+            return {"error": "Unauthorized: You can only delete your own account"}, 403
         
-        return {"message": f"User with email {email} deleted successfully"}, 200
+        # Delete the user (this will check if user exists)
+        db.delete_user(requested_email)
+        
+        # Clear the session since user is deleted
+        session.clear()
+        
+        return {"message": f"User with email {requested_email} deleted successfully"}, 200
         
     except ValueError as e:
         return {"error": str(e)}, 404

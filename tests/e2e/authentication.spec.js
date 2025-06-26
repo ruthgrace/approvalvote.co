@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { getLastVerificationCode } = require('./utils/test-helpers');
+const { getLastVerificationCode, establishUserSession } = require('./utils/test-helpers');
 
 test.describe('User Authentication', () => {
   test('should handle new user registration and verification flow', async ({ page }) => {
@@ -13,12 +13,16 @@ test.describe('User Authentication', () => {
       // First, delete the user to ensure clean state for registration test
       console.log('🧹 Cleaning existing user...');
       try {
+        // Try to establish session first, then delete
+        await establishUserSession(page, testEmail, 'Cleanup User', 'Cleanup');
         await page.request.delete('/api/user', {
           data: { email: testEmail },
           headers: { 'Content-Type': 'application/json' }
         });
+        console.log('✅ Existing user cleaned up');
       } catch (error) {
-        // User might not exist, which is fine
+        // User might not exist or cleanup failed, continue with test
+        console.log('ℹ️ No existing user to clean up');
       }
       
       await page.goto('/makepoll');
@@ -87,7 +91,7 @@ test.describe('User Authentication', () => {
         expect(verificationVisible).toBeTruthy();
       }
     } finally {
-      // Cleanup: Delete the user we created
+      // Cleanup: Delete the user we created (session should already be established)
       try {
         const deleteResponse = await page.request.delete('/api/user', {
           data: { email: testEmail },
@@ -192,6 +196,8 @@ test.describe('User Authentication', () => {
     
     // Clean existing user to ensure clean state
     try {
+      // Try to establish session first, then delete
+      await establishUserSession(page, testEmail, 'Cleanup User', 'Cleanup');
       await page.request.delete('/api/user', {
         data: { email: testEmail },
         headers: { 'Content-Type': 'application/json' }
@@ -263,7 +269,7 @@ test.describe('User Authentication', () => {
         }
       }
     } finally {
-      // Cleanup: Delete the user we created
+      // Cleanup: Delete the user we created (session should be established from verification)
       try {
         const deleteResponse = await page.request.delete('/api/user', {
           data: { email: testEmail },
@@ -278,7 +284,7 @@ test.describe('User Authentication', () => {
 });
 
 test.describe('User Deletion', () => {
-  test('should only allow users to delete themselves (authorization check)', async ({ page }) => {
+  test('should only allow users to delete themselves (authorization check)', async ({ page, browser }) => {
     const userAEmail = 'noreply@approvalvote.co';
     const userBEmail = 'unauthorized@example.com';
     
@@ -299,35 +305,63 @@ test.describe('User Deletion', () => {
         headers: { 'Content-Type': 'application/json' }
       });
       
-      // Create User A
-      console.log('👤 Creating User A...');
-      const userAResponse = await page.request.post('/new_user', {
-        form: {
-          'email': userAEmail,
-          'full_name': 'User A',
-          'preferred_name': 'UserA',
-          'origin_function': 'new_poll'
-        }
-      });
-      expect(userAResponse.status()).toBe(200);
-      console.log('✅ User A created successfully');
+      // Create and verify User A through the normal flow to establish session
+      console.log('👤 Creating and verifying User A through browser flow...');
+      await page.goto('/makepoll');
       
-      // Try to delete User A without proper authorization (should fail)
-      console.log('🚫 Attempting unauthorized deletion...');
-      const unauthorizedDeleteResponse = await page.request.delete('/api/user', {
-        data: { email: userAEmail },
-        headers: { 
-          'Content-Type': 'application/json',
-          // In a secure system, this should require session/token proving user identity
+      // Fill poll form to trigger user registration
+      await page.fill('input[id="email"]', userAEmail);
+      await page.fill('input[id="title"]', `Auth Test Poll ${Date.now()}`);
+      await page.fill('textarea[id="description"]', 'Testing authorization');
+      await page.fill('input[id="seats"]', '1');
+      
+      const optionInputs = page.locator('input[name="option"]');
+      await optionInputs.nth(0).fill('Option A');
+      await optionInputs.nth(1).fill('Option B');
+      
+      await page.click('button[type="submit"]');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+      
+      // Handle registration if needed
+      const needsRegistration = await page.locator(':has-text("do not have an account")').count() > 0;
+      if (needsRegistration) {
+        await page.fill('input[id="full_name"]', 'User A');
+        await page.fill('input[id="preferred_name"]', 'UserA');
+        await page.click('button:has-text("Send verification code")');
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
+      }
+      
+      // Handle verification to establish session
+      const needsVerification = await page.locator(':has-text("verification code")').count() > 0;
+      if (needsVerification) {
+        const verificationCode = await getLastVerificationCode(page);
+        if (verificationCode) {
+          await page.fill('input[name="code"]', verificationCode);
+          await page.click('button:has-text("Submit verification")');
+          await page.waitForLoadState('networkidle');
+          await page.waitForTimeout(2000);
         }
+      }
+      
+      console.log('✅ User A created and session established');
+      
+      // Create a NEW context without session for unauthorized request
+      console.log('🚫 Attempting unauthorized deletion (fresh context without session)...');
+      const unauthorizedContext = await browser.newContext();
+      const unauthorizedDeleteResponse = await unauthorizedContext.request.delete('http://127.0.0.1:3000/api/user', {
+        data: { email: userAEmail },
+        headers: { 'Content-Type': 'application/json' }
       });
+      await unauthorizedContext.close();
       
       // Should fail with 401 (Unauthorized), 403 (Forbidden), or 404 (Not Found)
       expect([401, 403, 404]).toContain(unauthorizedDeleteResponse.status());
       console.log(`✅ Unauthorized deletion properly rejected (status: ${unauthorizedDeleteResponse.status()})`);
       
-      // Now delete User A using User A's own email (should succeed)
-      console.log('✅ Attempting authorized deletion (User A deleting themselves)...');
+      // Now delete User A using the original context WITH session (should succeed)
+      console.log('✅ Attempting authorized deletion (with established session)...');
       const authorizedDeleteResponse = await page.request.delete('/api/user', {
         data: { email: userAEmail },
         headers: { 'Content-Type': 'application/json' }

@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { extractPollId, getLastVerificationCode } = require('./utils/test-helpers');
+const { extractPollId, getLastVerificationCode, establishUserSession } = require('./utils/test-helpers');
 
 test.describe('Complete Poll Lifecycle', () => {
   test('should demonstrate complete poll lifecycle - create, vote, view results, delete', async ({ page }) => {
@@ -13,12 +13,16 @@ test.describe('Complete Poll Lifecycle', () => {
     
     // Clean existing user to ensure clean state
     try {
+      // Try to establish session first, then delete
+      await establishUserSession(page, testEmail, 'Cleanup User', 'Cleanup');
       await page.request.delete('/api/user', {
         data: { email: testEmail },
         headers: { 'Content-Type': 'application/json' }
       });
+      console.log('✅ Existing user cleaned up');
     } catch (error) {
-      // User might not exist, which is fine
+      // User might not exist or cleanup failed, continue with test
+      console.log('ℹ️ No existing user to clean up');
     }
     
     // STEP 1: CREATE POLL
@@ -334,6 +338,8 @@ test.describe('Complete Poll Lifecycle', () => {
     
     // Clean existing user to ensure clean state
     try {
+      // Try to establish session first, then delete
+      await establishUserSession(page, testEmail, 'Cleanup User', 'Cleanup');
       await page.request.delete('/api/user', {
         data: { email: testEmail },
         headers: { 'Content-Type': 'application/json' }
@@ -411,7 +417,7 @@ test.describe('Complete Poll Lifecycle', () => {
         
         await secondPage.close();
       } finally {
-        // Cleanup
+        // Cleanup poll and user (poll cleanup should work because we have session from poll creation)
         try {
           await page.request.delete(`/api/poll/${pollId}`, {
             data: { email: testEmail },
@@ -419,6 +425,16 @@ test.describe('Complete Poll Lifecycle', () => {
           });
         } catch (error) {
           console.log('Cleanup warning: Could not delete poll');
+        }
+        
+        // Cleanup user (session should still be active)
+        try {
+          await page.request.delete('/api/user', {
+            data: { email: testEmail },
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.log('Cleanup warning: Could not delete user');
         }
       }
     }
