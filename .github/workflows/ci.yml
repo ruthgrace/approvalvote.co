@@ -18,8 +18,10 @@ jobs:
       with:
         python-version: '3.12'
     
-    - name: Install Python dependencies
+    - name: Create virtual environment and install dependencies
       run: |
+        python -m venv venv
+        . venv/bin/activate
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
@@ -50,6 +52,7 @@ jobs:
     
     - name: Run Python tests
       run: |
+        . venv/bin/activate
         pytest -v
 
   playwright-tests:
@@ -63,8 +66,10 @@ jobs:
       with:
         python-version: '3.12'
     
-    - name: Install Python dependencies
+    - name: Create virtual environment and install dependencies
       run: |
+        python -m venv venv
+        . venv/bin/activate
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
