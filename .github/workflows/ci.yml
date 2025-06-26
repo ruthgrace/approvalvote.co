@@ -28,10 +28,25 @@ jobs:
         cp secret_constants.py.example secret_constants.py
         echo "# Test secrets for CI" >> secret_constants.py
         echo "FLASK_SECRET = 'test-secret-key'" >> secret_constants.py
-        echo "DB_URL = '${{ secrets.TEST_DB_URL }}'" >> secret_constants.py
-        echo "DB_SERVICE_ROLE_KEY = '${{ secrets.TEST_DB_SERVICE_ROLE_KEY }}'" >> secret_constants.py
+        echo "DB_URL = '${{ secrets.DB_URL }}'" >> secret_constants.py
+        echo "DB_SERVICE_ROLE_KEY = '${{ secrets.DB_SERVICE_ROLE_KEY }}'" >> secret_constants.py
         echo "NOREPLY_EMAIL = 'test@example.com'" >> secret_constants.py
         echo "NOREPLY_PASSWORD = 'fake-password'" >> secret_constants.py
+        echo "--- DEBUG: Checking secrets file ---"
+        cat secret_constants.py
+        echo "--- DEBUG: Checking if secrets are set ---"
+        if [ -z "${{ secrets.DB_URL }}" ]; then
+          echo "ERROR: DB_URL secret is empty or not set!"
+          exit 1
+        else
+          echo "DB_URL is set"
+        fi
+        if [ -z "${{ secrets.DB_SERVICE_ROLE_KEY }}" ]; then
+          echo "ERROR: DB_SERVICE_ROLE_KEY secret is empty or not set!"
+          exit 1
+        else
+          echo "DB_SERVICE_ROLE_KEY is set"
+        fi
     
     - name: Run Python tests
       run: |
@@ -73,8 +88,8 @@ jobs:
         cp secret_constants.py.example secret_constants.py
         echo "# Test secrets for CI" >> secret_constants.py
         echo "FLASK_SECRET = 'test-secret-key'" >> secret_constants.py
-        echo "DB_URL = '${{ secrets.TEST_DB_URL }}'" >> secret_constants.py
-        echo "DB_SERVICE_ROLE_KEY = '${{ secrets.TEST_DB_SERVICE_ROLE_KEY }}'" >> secret_constants.py
+        echo "DB_URL = '${{ secrets.DB_URL }}'" >> secret_constants.py
+        echo "DB_SERVICE_ROLE_KEY = '${{ secrets.DB_SERVICE_ROLE_KEY }}'" >> secret_constants.py
         echo "NOREPLY_EMAIL = 'test@example.com'" >> secret_constants.py
         echo "NOREPLY_PASSWORD = 'fake-password'" >> secret_constants.py
     
