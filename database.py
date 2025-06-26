@@ -108,4 +108,57 @@ class PollDatabase:
             self.client.table("PollOptions").insert({
                 "option": option,
                 "poll": poll_id
-            }).execute() 
+            }).execute()
+
+    def is_poll_admin(self, poll_id, user_id):
+        """Check if a user is an admin of a specific poll"""
+        response = self.client.table("PollAdmins").select("id").eq("poll", poll_id).eq("user", user_id).execute()
+        return len(response.data) > 0
+
+    def delete_poll(self, poll_id, user_id):
+        """Delete a poll and all its related data if the user is authorized"""
+        # Check if user is admin of this poll
+        if not self.is_poll_admin(poll_id, user_id):
+            raise ValueError("User is not authorized to delete this poll")
+        
+        # Delete in order to maintain referential integrity
+        # Delete votes first
+        self.client.table("Votes").delete().eq("poll", poll_id).execute()
+        
+        # Delete poll options
+        self.client.table("PollOptions").delete().eq("poll", poll_id).execute()
+        
+        # Delete poll admin relationships
+        self.client.table("PollAdmins").delete().eq("poll", poll_id).execute()
+        
+        # Finally delete the poll itself
+        self.client.table("Polls").delete().eq("id", poll_id).execute()
+        
+        return True
+
+    def poll_exists(self, poll_id):
+        """Check if a poll exists"""
+        response = self.client.table("Polls").select("id").eq("id", poll_id).execute()
+        return len(response.data) > 0
+
+    def delete_user(self, email):
+        """Delete a user and all their associated data"""
+        # First check if user exists
+        user_id = self.get_user_id(email)
+        if not user_id:
+            raise ValueError("User not found")
+        
+        # Delete in order to maintain referential integrity
+        # Delete votes first
+        self.client.table("Votes").delete().eq("user", user_id).execute()
+        
+        # Delete poll admin relationships
+        self.client.table("PollAdmins").delete().eq("user", user_id).execute()
+        
+        # Delete form data associated with this email
+        self.client.table("FormData").delete().eq("email", email).execute()
+        
+        # Finally delete the user
+        self.client.table("Users").delete().eq("id", user_id).execute()
+        
+        return True 

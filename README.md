@@ -164,11 +164,17 @@ python website.py
 
 tests are in the tests folder.
 
+unit tests
 ```
 pytest -v
 ```
 
-### set up tests to run on every commit
+end to end tests
+```
+npx playwright test
+```
+
+### set up unit tests to run on every commit
 
 ```
 ln -s /var/www/approvalvote.co/pre-commit .git/hooks/pre-commit
@@ -182,3 +188,5 @@ ln -s /var/www/approvalvote.co/pre-commit .git/hooks/pre-commit
 ** view voters for a poll (but maybe hide what they voted for)
 * dockerize it, run multiple docker containers
 * look into autoscaling in digital ocean
+
+## API Endpoints

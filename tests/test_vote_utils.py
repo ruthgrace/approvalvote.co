@@ -10,13 +10,17 @@ from vote_utils import (
 
 def test_format_vote_confirmation_single_vote():
     selected = ["1|Option A"]
-    result = format_vote_confirmation(selected)
+    poll_id = 123
+    result = format_vote_confirmation(selected, poll_id)
     assert "You voted for: Option A" in result
+    assert f"/results/{poll_id}" in result
 
 def test_format_vote_confirmation_multiple_votes():
     selected = ["1|Option A", "2|Option B", "3|Option C"]
-    result = format_vote_confirmation(selected)
+    poll_id = 456
+    result = format_vote_confirmation(selected, poll_id)
     assert "You voted for: Option A, Option B, and Option C" in result
+    assert f"/results/{poll_id}" in result
 
 def test_format_winners_text_single_winner():
     winning_set = {1}

@@ -7,7 +7,7 @@ User=approvalvote
 Group=nginx
 WorkingDirectory=/var/www/approvalvote.co
 Environment="PATH=/var/www/approvalvote.co/venv/bin"
-ExecStart=/var/www/approvalvote.co/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 website:app
+ExecStart=/var/www/approvalvote.co/venv/bin/gunicorn --workers 3 --threads 2 --timeout 60 --keep-alive 2 --max-requests 1000 --max-requests-jitter 100 --bind 127.0.0.1:8000 website:app
 
 [Install]
 WantedBy=multi-user.target

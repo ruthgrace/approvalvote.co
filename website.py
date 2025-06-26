@@ -40,8 +40,9 @@ def poll_page(poll_id):
                             page_title=title, 
                             page_description=description, 
                             thumbnail_url=thumbnail_url)
-    except Exception:
+    except Exception as err:
         print(traceback.format_exc())
+        return f"Error loading poll: {type(err).__name__}. Please check if the poll ID is correct.", 404
 
 @app.route("/votesubmit", methods=["POST"])
 def new_vote(form_data=None):
@@ -90,7 +91,7 @@ def new_vote(form_data=None):
         user_id = db.get_user_id(poll_data[EMAIL]) if poll_data[EMAIL] else db.create_anonymous_user()
         db.save_votes(poll_data[ID], user_id, poll_data[SELECTED])
         
-        return format_vote_confirmation(poll_data[SELECTED])
+        return format_vote_confirmation(poll_data[SELECTED], poll_data[ID])
 
     except Exception as err:
         print(traceback.format_exc())
@@ -215,28 +216,62 @@ def compare_results():
 
 @app.route("/new_user", methods=["POST"])
 def new_user():
+    print("=== NEW_USER ROUTE CALLED ===")
     email = request.form.get("email")
     origin_function = request.form.get("origin_function")
     full_name = request.form.get("full_name", "")
     preferred_name = request.form.get("preferred_name", "")
+    
+    print(f"📧 Email: {email}")
+    print(f"🎯 Origin function: {origin_function}")
+    print(f"👤 Full name: {full_name}")
+    print(f"🏷️ Preferred name: {preferred_name}")
+    
     try:
         if preferred_name == "":
             preferred_name = full_name.strip().split()[0]
+            print(f"🔄 Auto-generated preferred name: {preferred_name}")
+        
+        print("💾 Attempting to insert user into database...")
         response = (
             supabase.table("Users")
             .insert({"email": email, "full_name": full_name, "preferred_name": preferred_name})
             .execute()
         )
-        print(f"new user response {response}")
+        print(f"✅ Database insert response: {response}")
+        
         user_id = response.data[0]['id']
-        print(f"user id is {user_id}")
-        email_service.send_verification_email(email)
-        response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function))
+        print(f"🆔 Generated user ID: {user_id}")
+        
+        print("📨 Attempting to send verification email...")
+        verification_code = email_service.send_verification_email(email)
+        print(f"🔐 Email service returned verification code: {verification_code}")
+        
+        # Store verification code in session for later verification
+        session[VERIFICATION_CODE] = verification_code
+        print(f"📝 Stored verification code in session")
+        
+        print("📝 Rendering verification code template...")
+        template_response = render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=origin_function)
+        print(f"📄 Template rendered successfully, length: {len(template_response)}")
+        
+        response = make_response(template_response)
         response.headers["HX-Retarget"] = "#error-message-div"
         response.headers["HX-Swap"] = "innerHTML"
+        print("✅ Response prepared with HTMX headers")
         return response
-    except Exception:
+        
+    except Exception as e:
+        print("❌ EXCEPTION IN NEW_USER ROUTE:")
+        print(f"Exception type: {type(e).__name__}")
+        print(f"Exception message: {str(e)}")
         print(traceback.format_exc())
+        
+        # Return an error response instead of None
+        error_response = make_response(f"Registration failed: {str(e)}")
+        error_response.headers["HX-Retarget"] = "#error-message-div"
+        error_response.headers["HX-Swap"] = "innerHTML"
+        return error_response
 
 @app.route("/verification", methods=["POST"])
 def user_verification():
@@ -303,7 +338,9 @@ def new_poll(form_data=None):
         user_id = db.get_user_id(poll_data[EMAIL])
         if EMAIL not in session or session[EMAIL] != poll_data[EMAIL]:
             db.save_form_data(poll_data)
-            email_service.send_verification_email(poll_data[EMAIL])
+            # Send verification email (with timeout protection)
+            verification_code = email_service.send_verification_email(poll_data[EMAIL])
+            session[VERIFICATION_CODE] = verification_code
             response = make_response(render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=NEW_POLL))
             response.headers["HX-Retarget"] = "#error-message-div"
             response.headers["HX-Swap"] = "innerHTML"
@@ -334,6 +371,90 @@ def new_poll(form_data=None):
         response = make_response(f"Error: {err}")
         response.headers["HX-Retarget"] = "#error-message-div"
         return response
+
+@app.route("/api/poll/<int:poll_id>", methods=["DELETE"])
+def delete_poll_api(poll_id):
+    """API endpoint to delete a poll"""
+    try:
+        # Get email from request (could be from JSON body or form data)
+        email = None
+        if request.is_json:
+            email = request.json.get('email')
+        else:
+            email = request.form.get('email')
+        
+        if not email:
+            return {"error": "Email is required"}, 400
+        
+        # Check if user exists
+        user_id = db.get_user_id(email)
+        if not user_id:
+            return {"error": "User not found"}, 404
+        
+        # Check if poll exists
+        if not db.poll_exists(poll_id):
+            return {"error": "Poll not found"}, 404
+        
+        # Delete the poll (this will check admin permissions)
+        db.delete_poll(poll_id, user_id)
+        
+        return {"message": f"Poll {poll_id} deleted successfully"}, 200
+        
+    except ValueError as e:
+        return {"error": str(e)}, 403
+    except Exception as e:
+        print(traceback.format_exc())
+        return {"error": "An error occurred while deleting the poll"}, 500
+
+@app.route("/api/user", methods=["DELETE"])
+def delete_user_api():
+    """API endpoint to delete a user - requires session authentication"""
+    try:
+        # Check if user is authenticated via session
+        if EMAIL not in session:
+            return {"error": "Authentication required"}, 401
+        
+        # Get email from request (could be from JSON body or form data)
+        requested_email = None
+        if request.is_json:
+            requested_email = request.json.get('email')
+        else:
+            requested_email = request.form.get('email')
+        
+        if not requested_email:
+            return {"error": "Email is required"}, 400
+        
+        # Authorization check: Users can only delete themselves
+        authenticated_email = session[EMAIL]
+        if authenticated_email != requested_email:
+            return {"error": "Unauthorized: You can only delete your own account"}, 403
+        
+        # Delete the user (this will check if user exists)
+        db.delete_user(requested_email)
+        
+        # Clear the session since user is deleted
+        session.clear()
+        
+        return {"message": f"User with email {requested_email} deleted successfully"}, 200
+        
+    except ValueError as e:
+        return {"error": str(e)}, 404
+    except Exception as e:
+        print(traceback.format_exc())
+        return {"error": "An error occurred while deleting the user"}, 500
+
+@app.route("/api/test/verification-code", methods=["GET"])
+def get_test_verification_code():
+    """Get the last verification code (TEST ONLY - only works in development)"""
+    import os
+    if os.getenv('FLASK_ENV') != 'development':
+        return {"error": "This endpoint is only available in development mode"}, 403
+    
+    code = email_service.get_last_verification_code()
+    if code:
+        return {"verification_code": code}, 200
+    else:
+        return {"error": "No verification code available"}, 404
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=3000, debug=True)
