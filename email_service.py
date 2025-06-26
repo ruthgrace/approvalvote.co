@@ -26,7 +26,7 @@ class EmailService:
         code = self.generate_verification_code()
         print(f"verification code is {code}")
         
-        # Store verification code for test access
+        # Store verification code for test access (do this BEFORE trying to send email)
         if os.getenv('FLASK_ENV') == 'development':
             EmailService._last_verification_code = code
             print(f"🧪 TEST MODE: Stored verification code {code} for test access")
@@ -43,7 +43,16 @@ Your verification code for ApprovalVote.Co is: {code}
 If you didn't request this code, please ignore this email.
         """.strip())
 
-        self._send_email(message)
+        # Try to send email, but don't let it break the flow in development
+        email_sent = self._send_email(message)
+        
+        # In development mode, we proceed even if email fails (tests can use the stored code)
+        if not email_sent and os.getenv('FLASK_ENV') == 'development':
+            print(f"⚠️ DEV MODE: Email failed but continuing with stored verification code {code}")
+        elif not email_sent:
+            # In production, we should probably raise an exception
+            raise Exception("Failed to send verification email")
+            
         return code
 
     def _send_email(self, message):
@@ -60,7 +69,8 @@ If you didn't request this code, please ignore this email.
                 server.login(self.noreply_email, self.noreply_password)
                 server.send_message(message)
                 print(f"✅ Email sent successfully to {message['To']}")
+                return True
         except Exception as e:
             print(f"❌ Failed to send email to {message['To']}: {type(e).__name__}: {e}")
-            # Don't re-raise the exception - log it and continue
-            # This prevents worker crashes when email fails 
+            # Return False instead of raising - let caller decide what to do
+            return False 

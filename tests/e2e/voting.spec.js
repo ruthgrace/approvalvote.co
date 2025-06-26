@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { extractPollId, getLastVerificationCode } = require('./utils/test-helpers');
+const { createTestPoll, extractPollId, getLastVerificationCode } = require('./utils/test-helpers');
 
 test.describe('Voting Flow', () => {
   // Helper function to create a poll with proper verification handling

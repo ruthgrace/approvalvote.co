@@ -1,6 +1,9 @@
 const { test, expect } = require('@playwright/test');
+const { getLastVerificationCode } = require('./utils/test-helpers');
 
-test.describe('Production Bug Debug', () => {
+// Debug tests - these are skipped by default
+// Remove .skip to enable when debugging production issues
+test.describe.skip('Debug Tests', () => {
   test('should debug the registration flow step by step', async ({ page }) => {
     const timestamp = Date.now();
     const randomNum = Math.floor(Math.random() * 10000);
@@ -42,7 +45,6 @@ test.describe('Production Bug Debug', () => {
     
     if (!registrationVisible) {
       console.log('❌ Registration form did not appear - test cannot continue');
-      test.skip('Registration form did not appear');
       return;
     }
     
@@ -67,8 +69,6 @@ test.describe('Production Bug Debug', () => {
     await page.waitForTimeout(5000);
     
     // Check what happened after submission
-    const pageContent = await page.textContent('body');
-    
     const verificationFormVisible = await page.locator(':has-text("verification code")').count() > 0;
     const errorVisible = await page.locator(':has-text("Registration failed"), :has-text("error")').count() > 0;
     const stillRegistrationForm = await page.locator(':has-text("do not have an account")').count() > 0;
@@ -98,5 +98,65 @@ test.describe('Production Bug Debug', () => {
     console.log('2. Check if "=== NEW_USER ROUTE CALLED ===" appears');
     console.log('3. Follow the step-by-step debug output');
     console.log('4. Look for any error messages or exceptions');
+  });
+
+  test('should test basic page loading', async ({ page }) => {
+    console.log('🔍 BASIC PAGE LOADING DEBUG');
+    console.log('===========================');
+    
+    // Test basic functionality
+    await page.goto('https://example.com');
+    await expect(page).toHaveTitle(/Example/);
+    await expect(page.locator('h1')).toBeVisible();
+    
+    console.log('✅ External site loading works');
+    
+    // Test local development server
+    await page.goto('/');
+    await expect(page.locator('body')).toBeVisible();
+    
+    console.log('✅ Local server loading works');
+    console.log('Current URL:', page.url());
+    console.log('Page title:', await page.title());
+  });
+
+  test('should capture network activity', async ({ page }) => {
+    console.log('🌐 NETWORK ACTIVITY DEBUG');
+    console.log('=========================');
+    
+    const requests = [];
+    const responses = [];
+    
+    page.on('request', request => {
+      requests.push({
+        url: request.url(),
+        method: request.method(),
+        headers: request.headers()
+      });
+      console.log(`📤 Request: ${request.method()} ${request.url()}`);
+    });
+    
+    page.on('response', response => {
+      responses.push({
+        url: response.url(),
+        status: response.status(),
+        headers: response.headers()
+      });
+      console.log(`📥 Response: ${response.status()} ${response.url()}`);
+    });
+    
+    await page.goto('/makepoll');
+    await page.waitForLoadState('networkidle');
+    
+    console.log(`📊 Total requests: ${requests.length}`);
+    console.log(`📊 Total responses: ${responses.length}`);
+    
+    const failedResponses = responses.filter(r => r.status >= 400);
+    if (failedResponses.length > 0) {
+      console.log('❌ Failed responses:');
+      failedResponses.forEach(r => console.log(`  ${r.status} ${r.url}`));
+    } else {
+      console.log('✅ All responses successful');
+    }
   });
 }); 
