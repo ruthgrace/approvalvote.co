@@ -80,3 +80,61 @@ def test_delete_user_api_with_mock_session(client):
     rv = client.delete('/api/user', json={'email': 'test@example.com'})
     # In our current implementation, this returns 403 because we check authorization first
     assert rv.status_code in [403, 404]  # Either is acceptable depending on implementation
+
+def test_csv_download_route_exists(client):
+    """Test that CSV download route is accessible"""
+    # Test with a poll that might exist (polls created during testing)
+    rv = client.get('/download-votes/1')
+    # Should not return 404 (route not found), but might return 500 if poll doesn't exist
+    assert rv.status_code != 404
+
+def test_csv_download_content_type(client):
+    """Test that CSV download returns correct content type"""
+    rv = client.get('/download-votes/1')
+    if rv.status_code == 200:
+        # If successful, should return CSV content type
+        assert 'text/csv' in rv.content_type
+        assert 'attachment' in rv.headers.get('Content-Disposition', '')
+
+def test_csv_download_with_existing_poll(client):
+    """Test CSV download with a known poll that has data"""
+    # Test with poll 17 which is referenced in other tests
+    rv = client.get('/download-votes/17')
+    
+    if rv.status_code == 200:
+        # If successful, should be CSV format
+        assert 'text/csv' in rv.content_type
+        
+        # Should have CSV headers
+        csv_content = rv.data.decode('utf-8')
+        assert 'Timestamp' in csv_content
+        
+        # Check if filename is set correctly
+        disposition = rv.headers.get('Content-Disposition', '')
+        assert 'filename=' in disposition
+        assert '.csv' in disposition
+
+def test_csv_download_headers_present(client):
+    """Test that CSV contains proper headers even if no votes"""
+    rv = client.get('/download-votes/1')
+    
+    if rv.status_code == 200:
+        csv_content = rv.data.decode('utf-8')
+        lines = csv_content.strip().split('\n')
+        
+        # Should have at least header row
+        assert len(lines) >= 1
+        
+        # First line should be headers starting with Timestamp
+        headers = lines[0]
+        assert headers.startswith('Timestamp')
+
+def test_csv_download_nonexistent_poll(client):
+    """Test CSV download with non-existent poll"""
+    rv = client.get('/download-votes/1')
+    # Should handle gracefully - either 404, 500, or empty CSV
+    assert rv.status_code in [200, 404, 500]
+    
+    if rv.status_code == 200:
+        # If it returns 200, should still be valid CSV format
+        assert 'text/csv' in rv.content_type

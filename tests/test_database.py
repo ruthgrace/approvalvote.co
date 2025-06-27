@@ -185,4 +185,72 @@ def test_get_user_polls_no_polls():
     db = PollDatabase(mock_supabase)
     result = db.get_user_polls(user_id=123)
     
-    assert result == [] 
+    assert result == []
+
+def test_get_votes_for_csv():
+    """Test getting votes formatted for CSV export"""
+    mock_supabase = Mock()
+    
+    # Mock votes data - simulate multiple votes from same user and different users
+    mock_votes_data = [
+        {'user': 1, 'option': 101, 'created_at': '2025-01-01T10:00:00+00:00'},
+        {'user': 1, 'option': 102, 'created_at': '2025-01-01T10:00:01+00:00'},  # Same user, later timestamp
+        {'user': 2, 'option': 101, 'created_at': '2025-01-01T11:00:00+00:00'},
+        {'user': 3, 'option': 102, 'created_at': '2025-01-01T12:00:00+00:00'},
+        {'user': 3, 'option': 103, 'created_at': '2025-01-01T12:00:01+00:00'},
+    ]
+    
+    # Mock poll options data
+    mock_options_data = [
+        {'id': 101, 'option': 'Option A'},
+        {'id': 102, 'option': 'Option B'},
+        {'id': 103, 'option': 'Option C'},
+    ]
+    
+    # Set up mock responses
+    mock_supabase.table().select().eq().execute.side_effect = [
+        Mock(data=mock_votes_data),    # First call for votes
+        Mock(data=mock_options_data),  # Second call for options
+    ]
+    
+    db = PollDatabase(mock_supabase)
+    user_votes, option_map = db.get_votes_for_csv(poll_id=1)
+    
+    # Verify option mapping
+    expected_option_map = {101: 'Option A', 102: 'Option B', 103: 'Option C'}
+    assert option_map == expected_option_map
+    
+    # Verify user votes are grouped correctly
+    assert len(user_votes) == 3  # 3 unique users
+    
+    # User 1 should have both options 101 and 102, with earliest timestamp
+    assert 1 in user_votes
+    assert user_votes[1]['user_id'] == 1
+    assert user_votes[1]['timestamp'] == '2025-01-01T10:00:00+00:00'  # Earlier timestamp
+    assert user_votes[1]['votes'] == {101, 102}
+    
+    # User 2 should have only option 101
+    assert 2 in user_votes
+    assert user_votes[2]['user_id'] == 2
+    assert user_votes[2]['votes'] == {101}
+    
+    # User 3 should have options 102 and 103
+    assert 3 in user_votes
+    assert user_votes[3]['user_id'] == 3
+    assert user_votes[3]['votes'] == {102, 103}
+
+def test_get_votes_for_csv_empty():
+    """Test CSV function with no votes"""
+    mock_supabase = Mock()
+    
+    # Mock empty responses
+    mock_supabase.table().select().eq().execute.side_effect = [
+        Mock(data=[]),  # No votes
+        Mock(data=[{'id': 101, 'option': 'Option A'}]),  # Has options
+    ]
+    
+    db = PollDatabase(mock_supabase)
+    user_votes, option_map = db.get_votes_for_csv(poll_id=1)
+    
+    assert user_votes == {}
+    assert option_map == {101: 'Option A'} 

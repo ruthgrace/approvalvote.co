@@ -360,6 +360,7 @@ def user_verification():
             return "Login failed. Please try again."
     
     # get previous form data from the original task the user was trying to complete
+    form_data = None
     try:
         response = supabase.table("Users").select("email").eq("id", user_id).execute()
         email = response.data[0]["email"]
@@ -368,8 +369,10 @@ def user_verification():
         session[EMAIL] = email
     except Exception:
         print(traceback.format_exc())
+        return "Error retrieving form data. Please try again."
+    
     if origin_function == NEW_VOTE:
-        print("trying to run new vote with form_data {form_data}")
+        print(f"trying to run new vote with form_data {form_data}")
         return new_vote(form_data=form_data)
     else: # new_poll
         print(f"trying to run new poll with form_data {form_data}")

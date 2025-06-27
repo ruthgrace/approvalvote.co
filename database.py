@@ -185,23 +185,25 @@ class PollDatabase:
         # Create mapping of option_id to option_text
         option_map = {item["id"]: item["option"] for item in options_response.data}
         
-        # Group votes by user and timestamp
+        # Group votes by user only (since each user's vote should be one row)
         user_votes = {}
         for vote in votes_response.data:
             user_id = vote["user"]
             timestamp = vote["created_at"]
             option_id = vote["option"]
             
-            # Use user_id + timestamp as key since users might vote multiple times
-            key = f"{user_id}_{timestamp}"
-            
-            if key not in user_votes:
-                user_votes[key] = {
-                    "timestamp": timestamp,
+            # Use just user_id as key
+            if user_id not in user_votes:
+                user_votes[user_id] = {
+                    "timestamp": timestamp,  # Use the first timestamp we see for this user
                     "user_id": user_id,
                     "votes": set()
                 }
+            else:
+                # Keep the earliest timestamp for this user
+                if timestamp < user_votes[user_id]["timestamp"]:
+                    user_votes[user_id]["timestamp"] = timestamp
             
-            user_votes[key]["votes"].add(option_id)
+            user_votes[user_id]["votes"].add(option_id)
         
         return user_votes, option_map 

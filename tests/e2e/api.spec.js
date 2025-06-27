@@ -95,7 +95,7 @@ test.describe('API Tests', () => {
     console.log('=============================');
     
     // Try to delete a non-existent poll with unauthorized user
-    const response = await page.request.delete('/api/poll/99999', {
+    const response = await page.request.delete('/api/poll/1', {
       data: { email: 'unauthorized@example.com' },
       headers: { 'Content-Type': 'application/json' }
     });

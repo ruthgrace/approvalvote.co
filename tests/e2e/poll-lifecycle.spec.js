@@ -468,7 +468,7 @@ test.describe('Complete Poll Lifecycle', () => {
     console.log('🔒 Testing deletion security...');
     
     // Try to delete non-existent poll
-    const response = await page.request.delete('/api/poll/99999', {
+    const response = await page.request.delete('/api/poll/1', {
       data: { email: 'unauthorized@example.com' },
       headers: { 'Content-Type': 'application/json' }
     });

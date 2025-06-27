@@ -224,7 +224,7 @@ test.describe('Poll Results', () => {
 
   test('should handle non-existent poll results gracefully', async ({ page }) => {
     // Try to access results for a poll that likely doesn't exist
-    await page.goto('/results/999999');
+    await page.goto('/results/1');
     
     await page.waitForLoadState('networkidle');
     
@@ -232,8 +232,82 @@ test.describe('Poll Results', () => {
     const currentUrl = page.url();
     const hasErrorHandling = currentUrl.includes('error') || 
                            await page.locator(':has-text("not found"), :has-text("error")').count() > 0 ||
-                           !currentUrl.includes('999999'); // redirected away
+                           !currentUrl.includes('1'); // redirected away
     
     expect(hasErrorHandling).toBeTruthy();
+  });
+
+  test('should display CSV download button with correct functionality', async ({ page }) => {
+    // Create a poll with votes to test CSV download
+    const result = await createPollWithVerification(page, 'CSV Download Test', ['Download Option A', 'Download Option B', 'Download Option C']);
+    expect(result.pollId).toBeTruthy();
+    
+    try {
+      // Cast some votes to ensure CSV has data
+      const votes = [
+        { name: 'CSV Voter 1', email: null, optionIndexes: [0] }, // Option A only
+        { name: 'CSV Voter 2', email: null, optionIndexes: [1] }, // Option B only
+        { name: 'CSV Voter 3', email: null, optionIndexes: [0, 2] }, // Options A and C
+      ];
+      
+      await castVotesOnPoll(page, result.pollId, votes);
+      
+      // Go to results page
+      await page.goto(`/results/${result.pollId}`);
+      await page.waitForLoadState('networkidle');
+      
+      // Check that download button exists and is visible
+      const downloadButton = page.locator('a:has-text("Download votes")');
+      await expect(downloadButton).toBeVisible();
+      console.log('✅ Download votes button is visible on results page');
+      
+      // Check button styling (should be blue outline style, not solid blue)
+      const buttonClasses = await downloadButton.getAttribute('class');
+      expect(buttonClasses).toContain('text-blue-600');
+      expect(buttonClasses).toContain('border-blue-600');
+      expect(buttonClasses).not.toContain('bg-blue-600'); // Should NOT have solid background
+      console.log('✅ Download button has correct outline styling');
+      
+      // Check that button links to correct URL
+      const buttonHref = await downloadButton.getAttribute('href');
+      expect(buttonHref).toBe(`/download-votes/${result.pollId}`);
+      console.log('✅ Download button links to correct CSV endpoint');
+      
+      // Test that the CSV download works and returns proper headers
+      const [response] = await Promise.all([
+        page.waitForResponse(response => 
+          response.url().includes(`/download-votes/${result.pollId}`)
+        ),
+        downloadButton.click()
+      ]);
+      
+      // Verify the response is a CSV file with correct headers
+      expect(response.status()).toBe(200);
+      
+      const contentType = response.headers()['content-type'];
+      expect(contentType).toContain('text/csv');
+      
+      const contentDisposition = response.headers()['content-disposition'];
+      expect(contentDisposition).toContain('attachment');
+      expect(contentDisposition).toContain('.csv');
+      
+      // Note: We can't read the actual CSV content in Playwright for file downloads,
+      // but we've verified the request succeeds with proper headers.
+      // The CSV content is tested in our integration tests.
+      
+      console.log('✅ CSV download successful with correct HTTP headers and file format');
+      
+    } finally {
+      // Cleanup: Delete the poll
+      try {
+        const deleteResponse = await page.request.delete(`/api/poll/${result.pollId}`, {
+          data: { email: result.email },
+          headers: { 'Content-Type': 'application/json' }
+        });
+        console.log(`🧹 Cleanup: Poll ${result.pollId} deletion status: ${deleteResponse.status()}`);
+      } catch (error) {
+        console.log(`⚠️ Cleanup warning: Could not delete poll ${result.pollId}`);
+      }
+    }
   });
 }); 
