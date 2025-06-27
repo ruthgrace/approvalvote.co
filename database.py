@@ -161,4 +161,15 @@ class PollDatabase:
         # Finally delete the user
         self.client.table("Users").delete().eq("id", user_id).execute()
         
-        return True 
+        return True
+
+    def get_user_polls(self, user_id):
+        """Get all polls owned by a user"""
+        response = self.client.table("PollAdmins").select("poll").eq("user", user_id).execute()
+        poll_ids = [item["poll"] for item in response.data]
+        
+        if not poll_ids:
+            return []
+        
+        polls_response = self.client.table("Polls").select("id, title, description, created_at").in_("id", poll_ids).execute()
+        return polls_response.data 

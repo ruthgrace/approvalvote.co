@@ -1,5 +1,7 @@
 {% if origin_function == "new_poll" %}
   <form hx-post="/verification" hx-target="#poll-form-container" hx-swap="outerHTML">
+{% elif origin_function == "login" %}
+  <form hx-post="/verification" hx-target="#response" hx-swap="innerHTML">
 {% else %}
   <form hx-post="/verification" hx-target="#response" hx-swap="innerHTML">
 {% endif %}

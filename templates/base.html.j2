@@ -20,10 +20,16 @@
     <header class="text-black py-4">
       <nav class="flex justify-between items-center">
         <h1 class="text-lg"><a href="/" class="hover:text-gray-500">ApprovalVote Co</a></h1>
+        <a href="/login">
+          <button class="text-blue-600 border border-blue-600 hover:bg-blue-50 font-medium px-4 py-2 rounded-full transition duration-150 ease-in-out">
+            Log in
+          </button>
+        </a>
+      </div>
     </nav>
   </header>
 
-  <main class="container-fluid mx-auto">
+  <main class="container-fluid mx-auto px-32">
     {% block content %}{% endblock %}
   </main>
   <footer class="container-fluid mx-auto px-32 py-8 mt-auto">
