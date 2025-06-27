@@ -32,6 +32,10 @@
     <button type="resultsubmit" class="btn-primary">See how close your preferred candidates were to winning</button>
   </form>
   <div id="resultresponse"></div>
+  
+  <div class="mt-8">
+    <a href="{{ url_for('download_votes_csv', poll_id=poll_id) }}" class="btn-primary">Download votes</a>
+  </div>
 </div>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>

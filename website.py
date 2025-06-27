@@ -1,7 +1,10 @@
-from flask import Flask, render_template, request, session, make_response, redirect
+from flask import Flask, render_template, request, session, make_response, redirect, Response
 from supabase import create_client, Client
 import itertools
 import traceback
+import csv
+import io
+from datetime import datetime
 from database import PollDatabase
 from email_service import EmailService
 from vote_utils import format_vote_confirmation, format_winners_text, sorted_candidate_sets, votes_by_candidate, votes_by_number_of_candidates
@@ -152,6 +155,64 @@ def poll_results_page(poll_id):
     except Exception as err:
         print(traceback.format_exc())
         return type(err).__name__
+
+@app.route("/download-votes/<int:poll_id>")
+def download_votes_csv(poll_id):
+    try:
+        # Get vote data and poll options
+        user_votes, option_map = db.get_votes_for_csv(poll_id)
+        
+        # Get poll title for filename
+        poll_details = db.get_poll_details(poll_id)
+        poll_title = poll_details['title'] if poll_details else f"Poll_{poll_id}"
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Create header row
+        header = ["Timestamp"] + [option_text for option_text in option_map.values()]
+        writer.writerow(header)
+        
+        # Write data rows
+        for vote_data in user_votes.values():
+            timestamp = vote_data["timestamp"]
+            
+            # Parse the timestamp to make it more readable
+            try:
+                # Parse ISO format timestamp
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                formatted_timestamp = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+            except:
+                formatted_timestamp = timestamp
+            
+            # Create row with timestamp and yes/no for each option
+            row = [formatted_timestamp]
+            for option_id, option_text in option_map.items():
+                row.append("yes" if option_id in vote_data["votes"] else "no")
+            
+            writer.writerow(row)
+        
+        # Prepare the response
+        output.seek(0)
+        csv_data = output.getvalue()
+        output.close()
+        
+        # Create filename with safe characters
+        safe_title = "".join(c for c in poll_title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        filename = f"{safe_title}_votes.csv"
+        
+        # Return CSV as download
+        response = Response(
+            csv_data,
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+        )
+        return response
+        
+    except Exception as err:
+        print(traceback.format_exc())
+        return f"Error generating CSV: {type(err).__name__}", 500
 
 @app.route("/resultsubmit", methods=["POST"])
 def compare_results():

@@ -172,4 +172,36 @@ class PollDatabase:
             return []
         
         polls_response = self.client.table("Polls").select("id, title, description, created_at").in_("id", poll_ids).execute()
-        return polls_response.data 
+        return polls_response.data
+
+    def get_votes_for_csv(self, poll_id):
+        """Get all votes for a poll with timestamps for CSV export"""
+        # Get all votes with timestamps
+        votes_response = self.client.table("Votes").select("user, option, created_at").eq("poll", poll_id).execute()
+        
+        # Get all poll options
+        options_response = self.client.table("PollOptions").select("id, option").eq("poll", poll_id).execute()
+        
+        # Create mapping of option_id to option_text
+        option_map = {item["id"]: item["option"] for item in options_response.data}
+        
+        # Group votes by user and timestamp
+        user_votes = {}
+        for vote in votes_response.data:
+            user_id = vote["user"]
+            timestamp = vote["created_at"]
+            option_id = vote["option"]
+            
+            # Use user_id + timestamp as key since users might vote multiple times
+            key = f"{user_id}_{timestamp}"
+            
+            if key not in user_votes:
+                user_votes[key] = {
+                    "timestamp": timestamp,
+                    "user_id": user_id,
+                    "votes": set()
+                }
+            
+            user_votes[key]["votes"].add(option_id)
+        
+        return user_votes, option_map 
