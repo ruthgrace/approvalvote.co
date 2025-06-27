@@ -143,4 +143,46 @@ def test_delete_user_not_found():
     db = PollDatabase(mock_supabase)
     
     with pytest.raises(ValueError, match="User not found"):
-        db.delete_user('nonexistent@example.com') 
+        db.delete_user('nonexistent@example.com')
+
+def test_delete_user_nonexistent():
+    """Test deleting a user that doesn't exist"""
+    mock_supabase = Mock()
+    # Mock that user doesn't exist
+    mock_supabase.table().select().eq().execute.return_value.data = []
+    
+    db = PollDatabase(mock_supabase)
+    
+    with pytest.raises(ValueError, match="User not found"):
+        db.delete_user('nonexistent@example.com')
+
+def test_get_user_polls_with_polls():
+    """Test getting polls for a user who has polls"""
+    mock_supabase = Mock()
+    # Mock PollAdmins response
+    mock_supabase.table().select().eq().execute.return_value.data = [
+        {"poll": 1}, {"poll": 2}
+    ]
+    # Mock Polls response
+    mock_supabase.table().select().in_().execute.return_value.data = [
+        {"id": 1, "title": "Poll 1", "description": "Test poll 1", "created_at": "2024-01-01"},
+        {"id": 2, "title": "Poll 2", "description": "Test poll 2", "created_at": "2024-01-02"}
+    ]
+    
+    db = PollDatabase(mock_supabase)
+    result = db.get_user_polls(user_id=123)
+    
+    assert len(result) == 2
+    assert result[0]["title"] == "Poll 1"
+    assert result[1]["title"] == "Poll 2"
+
+def test_get_user_polls_no_polls():
+    """Test getting polls for a user who has no polls"""
+    mock_supabase = Mock()
+    # Mock empty PollAdmins response
+    mock_supabase.table().select().eq().execute.return_value.data = []
+    
+    db = PollDatabase(mock_supabase)
+    result = db.get_user_polls(user_id=123)
+    
+    assert result == [] 

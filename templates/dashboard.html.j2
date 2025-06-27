@@ -1,0 +1,57 @@
+{% extends "base.html.j2" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto mt-8 space-y-2">
+  <div class="space-y-2">
+    <h1 class="text-3xl font-medium">Your Polls</h1>
+    <p class="text-gray-600">Manage all the polls you've created</p>
+  </div>
+  
+  {% if polls %}
+    <div class="space-y-4">
+      {% for poll in polls %}
+        <div id="poll-{{ poll.id }}" class="bg-gray-50 rounded-3xl p-4 border border-gray-300">
+          <div class="flex justify-between items-start gap-6">
+            <div class="flex-1">
+              <h2 class="text-xl font-medium mb-3">{{ poll.title }}</h2>
+              {% if poll.description %}
+                <p class="text-gray-600 mb-4">{{ poll.description }}</p>
+              {% endif %}
+              <p class="text-sm text-gray-500">Created: {{ poll.created_at[:10] if poll.created_at else 'Unknown' }}</p>
+            </div>
+            <div class="flex gap-4 flex-shrink-0">
+              <button hx-get="/poll/{{ poll.id }}/delete-confirm" 
+                      hx-target="#poll-{{ poll.id }}"
+                      class="text-red-600 hover:text-red-800 font-medium">
+                Delete
+              </button>
+              <a href="/vote/{{ poll.id }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                Vote
+              </a>
+              <a href="/results/{{ poll.id }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                Results
+              </a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-center py-12">
+      <div class="bg-gray-50 rounded-3xl p-8 border border-gray-300">
+        <h2 class="text-xl font-medium mb-4">No polls yet</h2>
+        <p class="text-gray-600 mb-6">You haven't created any polls yet. Create your first poll to get started!</p>
+        <a href="/makepoll">
+          <button class="btn-primary">Create your first poll</button>
+        </a>
+      </div>
+    </div>
+  {% endif %}
+  
+  <div class="mt-10 text-center">
+    <a href="/makepoll">
+      <button class="btn-primary">Create New Poll</button>
+    </a>
+  </div>
+</div>
+{% endblock %} 

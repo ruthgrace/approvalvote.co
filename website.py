@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, make_response
+from flask import Flask, render_template, request, session, make_response, redirect
 from supabase import create_client, Client
 import itertools
 import traceback
@@ -6,7 +6,7 @@ from database import PollDatabase
 from email_service import EmailService
 from vote_utils import format_vote_confirmation, format_winners_text, sorted_candidate_sets, votes_by_candidate, votes_by_number_of_candidates
 import secret_constants
-from constants import EMAIL, TITLE, COVER_URL, DESCRIPTION, CANDIDATES, SEATS, NEW_POLL, NEW_VOTE, EMAIL_VERIFICATION, SELECTED, ID, VERIFICATION_CODE
+from constants import EMAIL, TITLE, COVER_URL, DESCRIPTION, CANDIDATES, SEATS, NEW_POLL, NEW_VOTE, LOGIN, EMAIL_VERIFICATION, SELECTED, ID, VERIFICATION_CODE
 
 app = Flask(__name__)
 app.secret_key = secret_constants.FLASK_SECRET
@@ -280,6 +280,24 @@ def user_verification():
         return "Incorrect code. Please try again."
     origin_function = request.form.get("origin_function")
     user_id = request.form.get("user_id")
+    
+    # Handle login verification
+    if origin_function == LOGIN:
+        try:
+            email = session.get("login_email")
+            if email:
+                session[EMAIL] = email
+                session.pop("login_email", None)  # Clean up temporary email storage
+                # Redirect to dashboard using HTMX
+                response = make_response("")
+                response.headers["HX-Redirect"] = "/dashboard"
+                return response
+            else:
+                return "Login session expired. Please try again."
+        except Exception:
+            print(traceback.format_exc())
+            return "Login failed. Please try again."
+    
     # get previous form data from the original task the user was trying to complete
     try:
         response = supabase.table("Users").select("email").eq("id", user_id).execute()
@@ -398,13 +416,108 @@ def delete_poll_api(poll_id):
         # Delete the poll (this will check admin permissions)
         db.delete_poll(poll_id, user_id)
         
-        return {"message": f"Poll {poll_id} deleted successfully"}, 200
+        # Check if this is an HTMX request
+        if request.headers.get('HX-Request'):
+            # Return empty content to remove the element from DOM
+            return "", 200
+        else:
+            return {"message": f"Poll {poll_id} deleted successfully"}, 200
         
     except ValueError as e:
         return {"error": str(e)}, 403
     except Exception as e:
         print(traceback.format_exc())
         return {"error": "An error occurred while deleting the poll"}, 500
+
+@app.route("/poll/<int:poll_id>/delete-confirm")
+def poll_delete_confirm(poll_id):
+    """Return confirmation dialog for poll deletion"""
+    # Check if user is authenticated
+    if EMAIL not in session:
+        return "Authentication required", 401
+    
+    try:
+        # Get poll info to show in confirmation
+        poll = db.get_poll_details(poll_id)
+        if not poll:
+            return "Poll not found", 404
+        
+        # Check if user is authorized to delete this poll
+        user_id = db.get_user_id(session[EMAIL])
+        if not db.is_poll_admin(poll_id, user_id):
+            return "Not authorized to delete this poll", 403
+        
+        return f"""
+        <div class="bg-red-50 rounded-3xl p-4 border border-red-200">
+          <div class="text-center">
+            <h3 class="text-lg font-medium text-red-800 mb-2">Delete Poll?</h3>
+            <p class="text-red-700 mb-1 font-medium">"{poll['title']}"</p>
+            <p class="text-sm text-red-600 mb-4">This action cannot be undone.</p>
+            <div class="flex gap-3 justify-center">
+              <form hx-delete="/api/poll/{poll_id}" 
+                    hx-target="#poll-{poll_id}"
+                    hx-swap="outerHTML">
+                <input type="hidden" name="email" value="{session[EMAIL]}">
+                <button type="submit" class="btn-primary">
+                  Yes, Delete
+                </button>
+              </form>
+              <button hx-get="/poll/{poll_id}/cancel-delete"
+                      hx-target="#poll-{poll_id}"
+                      class="text-blue-600 border border-blue-600 hover:bg-blue-50 font-medium px-4 py-2 rounded-full transition duration-150 ease-in-out">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+        """
+        
+    except Exception as e:
+        print(traceback.format_exc())
+        return f"Error: {type(e).__name__}", 500
+
+
+@app.route("/poll/<int:poll_id>/cancel-delete")
+def poll_cancel_delete(poll_id):
+    """Cancel poll deletion and restore original view"""
+    # Check if user is authenticated
+    if EMAIL not in session:
+        return "Authentication required", 401
+    
+    try:
+        # Get poll info to restore the original view
+        poll = db.get_poll_details(poll_id)
+        if not poll:
+            return "Poll not found", 404
+        
+        return f"""
+        <div id="poll-{poll_id}" class="bg-gray-50 rounded-3xl p-4 border border-gray-300">
+          <div class="flex justify-between items-start gap-6">
+            <div class="flex-1">
+              <h2 class="text-xl font-medium mb-3">{poll['title']}</h2>
+              {'<p class="text-gray-600 mb-4">' + poll['description'] + '</p>' if poll.get('description') else ''}
+              <p class="text-sm text-gray-500">Created: {poll['created_at'][:10] if poll.get('created_at') else 'Unknown'}</p>
+            </div>
+            <div class="flex gap-4 flex-shrink-0">
+              <button hx-get="/poll/{poll_id}/delete-confirm" 
+                      hx-target="#poll-{poll_id}"
+                      class="text-red-600 hover:text-red-800 font-medium">
+                Delete
+              </button>
+              <a href="/vote/{poll_id}" class="text-blue-600 hover:text-blue-800 font-medium">
+                Vote
+              </a>
+              <a href="/results/{poll_id}" class="text-blue-600 hover:text-blue-800 font-medium">
+                Results
+              </a>
+            </div>
+          </div>
+        </div>
+        """
+        
+    except Exception as e:
+        print(traceback.format_exc())
+        return f"Error: {type(e).__name__}", 500
 
 @app.route("/api/user", methods=["DELETE"])
 def delete_user_api():
@@ -455,6 +568,49 @@ def get_test_verification_code():
         return {"verification_code": code}, 200
     else:
         return {"error": "No verification code available"}, 404
+
+@app.route("/login")
+def login_page():
+    return render_template('login.html.j2')
+
+@app.route("/login_submit", methods=["POST"])
+def login_submit():
+    email = request.form.get("email")
+    
+    if not email:
+        return "Please enter an email address."
+    
+    try:
+        # Check if user exists
+        if not db.user_exists(email):
+            return "No account found with this email address. Please create a poll first to register."
+        
+        user_id = db.get_user_id(email)
+        
+        # Send verification email
+        verification_code = email_service.send_verification_email(email)
+        session[VERIFICATION_CODE] = verification_code
+        session["login_email"] = email  # Store email for after verification
+        
+        return render_template("verification_code_snippet.html.j2", user_id=user_id, origin_function=LOGIN)
+        
+    except Exception as err:
+        print(traceback.format_exc())
+        return f"Error: {type(err).__name__}"
+
+@app.route("/dashboard")
+def dashboard():
+    # Check if user is authenticated
+    if EMAIL not in session:
+        return redirect("/login")
+    
+    try:
+        user_id = db.get_user_id(session[EMAIL])
+        polls = db.get_user_polls(user_id)
+        return render_template('dashboard.html.j2', polls=polls)
+    except Exception as err:
+        print(traceback.format_exc())
+        return f"Error loading dashboard: {type(err).__name__}"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=3000, debug=True)

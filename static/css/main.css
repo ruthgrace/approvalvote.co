@@ -15,4 +15,8 @@
     .btn-disabled {
         @apply bg-gray-500 text-white font-medium px-6 py-4 rounded-full transition duration-150 ease-in-out;
     }
+
+    .poll-spacing>*+* {
+        margin-top: 2rem;
+    }
 }
