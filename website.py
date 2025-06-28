@@ -71,7 +71,7 @@ def new_vote(form_data=None):
         # Handle user verification
         if poll_data[EMAIL]:
             if not db.user_exists(poll_data[EMAIL]):
-                db.save_form_data(poll_data[EMAIL], poll_data)
+                db.save_form_data(poll_data)
                 response = make_response(render_template(
                     "new_user_snippet.html.j2", 
                     email=poll_data[EMAIL], 
@@ -80,8 +80,8 @@ def new_vote(form_data=None):
                 response.headers["HX-Retarget"] = "#error-message-div"
                 return response
 
-            if email_verification and EMAIL not in session:
-                db.save_form_data(poll_data[EMAIL], poll_data)
+            if email_verification and (EMAIL not in session or session[EMAIL] != poll_data[EMAIL]):
+                db.save_form_data(poll_data)
                 code = email_service.send_verification_email(poll_data[EMAIL])
                 session[VERIFICATION_CODE] = code
                 return render_template(

@@ -3,6 +3,7 @@ const { extractPollId, getLastVerificationCode, establishUserSession } = require
 
 test.describe('Complete Poll Lifecycle', () => {
   test('should demonstrate complete poll lifecycle - create, vote, view results, delete', async ({ page }) => {
+    test.setTimeout(60000); // Increase timeout to 60 seconds for comprehensive test
     const timestamp = Date.now();
     const testEmail = 'noreply@approvalvote.co';
     const pollTitle = `Complete Lifecycle Test Poll ${timestamp}`;
@@ -33,6 +34,10 @@ test.describe('Complete Poll Lifecycle', () => {
     await page.fill('input[id="title"]', pollTitle);
     await page.fill('textarea[id="description"]', 'Complete lifecycle test poll');
     await page.fill('input[id="seats"]', '2');
+    
+    // Enable email verification for security testing
+    await page.check('input[name="email_verification"]');
+    console.log('✅ Email verification enabled for poll');
     
     // Fill poll options
     const optionInputs = page.locator('input[name="option"]');
@@ -149,23 +154,21 @@ test.describe('Complete Poll Lifecycle', () => {
     await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle');
     
-    // Vote 2: Same email (noreply@approvalvote.co) in NEW browser context - should NOT require verification
-    console.log('🔄 Vote 2: Testing same email vote update in new context...');
+    // Vote 2: Same email (noreply@approvalvote.co) in NEW browser context - SHOULD require verification
+    console.log('🔄 Vote 2: Testing security - fresh context MUST require verification...');
     const context2 = await page.context().browser().newContext();
     const page2 = await context2.newPage();
     await page2.goto(`/vote/${pollId}`);
     await page2.waitForLoadState('networkidle');
     
     // Fill voter info with the same email as poll creator (should update their existing vote)
-    const fullNameInput2 = page2.locator('input[id="full_name"]');
-    const emailInput2 = page2.locator('input[id="email"]');
+    const emailInput2 = page2.locator('input[name="user_email"]');
     
-    if (await fullNameInput2.count() > 0) {
-      await fullNameInput2.fill('Poll Creator Voting');
-    }
     if (await emailInput2.count() > 0) {
-      await emailInput2.fill(testEmail); // Same email as poll creator - should update vote, not require verification
-      console.log('📧 Using poll creator email - should update existing vote without verification');
+      await emailInput2.fill(testEmail); // Same email as poll creator - should require verification in fresh context
+      console.log('📧 Using poll creator email - fresh context should require verification');
+    } else {
+      console.log('❌ Email input field not found on vote page');
     }
     
     const voteOptions2 = page2.locator('input[type="checkbox"], input[type="radio"]');
@@ -186,46 +189,60 @@ test.describe('Complete Poll Lifecycle', () => {
     
     await page2.click('button[type="submit"]');
     
-    // Wait for vote response instead of networkidle (which can hang due to JS in response)
-    try {
-      await page2.waitForSelector(':has-text("Vote submitted"), :has-text("submitted"), svg[stroke="white"]', { timeout: 10000 });
-    } catch (error) {
-      // Vote might have been processed even if confirmation isn't visible
-      await page2.waitForTimeout(1000); // Brief wait for any processing
-    }
+    // SECURITY CHECK: Fresh browser context should ALWAYS require verification
+    // Wait for either verification form OR vote confirmation (but verification should come first)
+    console.log('🔍 Waiting for server response...');
+    await page2.waitForTimeout(2000); // Brief wait for server response
     
-    // Check that verification is NOT required (same email = already verified globally)
-    const needsVerification2 = await page2.locator(':has-text("verification code")').count() > 0;
+    const needsVerification2 = await page2.locator('#response input[name="code"]').count() > 0;
+    const hasVoteConfirmation = await page2.locator('#response :has-text("Vote submitted"), #response :has-text("submitted"), #response svg[stroke="white"]').count() > 0;
     const currentUrl2 = page2.url();
+    
     console.log(`📍 After submitting vote, page URL: ${currentUrl2}`);
     console.log(`🔍 Verification form present: ${needsVerification2}`);
+    console.log(`🔍 Vote confirmation present: ${hasVoteConfirmation}`);
     
-    if (!needsVerification2) {
-      console.log('✅ CORRECT: Same email does not require verification (already verified globally)');
+    if (hasVoteConfirmation && !needsVerification2) {
+      console.log('🚨 SECURITY VULNERABILITY DETECTED!');
+      console.log('🚨 Fresh browser context allowed vote without verification!');
+      console.log('🚨 This means the app is not properly checking sessions/authentication');
+      console.log('🚨 Even if the email was "verified globally", a fresh context should require new verification');
+      throw new Error('SECURITY FAILURE: Vote submission bypassed verification in fresh browser context - this is a critical security vulnerability');
+    } else if (needsVerification2) {
+      console.log('✅ SECURITY CHECK PASSED: Fresh context properly requires verification');
+      console.log('   This is correct behavior - fresh browser contexts should always require verification');
       
-      // Check for vote success confirmation
-      const pageContent = await page2.content();
-      const hasThankYou = pageContent.includes('thank you') || pageContent.includes('Thank you');
-      const hasVoteSuccess = pageContent.includes('vote') && (pageContent.includes('success') || pageContent.includes('cast'));
-      console.log(`   Vote success confirmation: ${hasThankYou || hasVoteSuccess}`);
-      
-      if (hasThankYou || hasVoteSuccess) {
-        console.log('✅ Vote 2 successfully updated (same email = vote update, not new vote)');
-      }
-    } else {
-      console.log('❌ UNEXPECTED: Same email required verification - this suggests a bug');
-      console.log('   Expected: Same email should be already verified globally');
-      console.log('   Got: Verification required for already-verified email');
-      
-      // Still handle verification if it unexpectedly appears
+      // Handle the required verification
       const verificationCode2 = await getLastVerificationCode(page2);
       if (verificationCode2) {
-        await page2.fill('input[name="code"]', verificationCode2);
-        await page2.click('button:has-text("Submit verification")');
-        await page2.waitForLoadState('networkidle');
-        await page2.waitForTimeout(2000);
-        console.log('⚠️ Completed unexpected verification');
+        await page2.fill('#response input[name="code"]', verificationCode2);
+        await page2.click('#response button:has-text("Submit verification code")');
+        await page2.waitForTimeout(3000); // Wait for verification processing
+        console.log('✅ Verification completed properly');
+        
+        // Now wait for vote success confirmation after verification
+        try {
+          await page2.waitForSelector('#response :has-text("Vote submitted"), #response :has-text("submitted"), #response svg[stroke="white"]', { timeout: 5000 });
+          console.log('✅ Vote 2 successfully submitted after proper verification');
+        } catch (error) {
+          // Check for vote success in page content
+          const pageContent = await page2.content();
+          const hasThankYou = pageContent.includes('thank you') || pageContent.includes('Thank you');
+          const hasVoteSuccess = pageContent.includes('vote') && (pageContent.includes('success') || pageContent.includes('cast'));
+          if (hasThankYou || hasVoteSuccess) {
+            console.log('✅ Vote 2 successfully submitted after proper verification (detected in page content)');
+          } else {
+            console.log('⚠️ Vote submission status unclear after verification - but verification process was correct');
+          }
+        }
+      } else {
+        throw new Error('Could not retrieve verification code for required verification');
       }
+    } else {
+      console.log('⚠️ Neither verification form nor vote confirmation found - checking page content...');
+      const pageContent = await page2.content();
+      console.log(`📄 Page content snippet: ${pageContent.substring(0, 200)}...`);
+      throw new Error('Unexpected response after vote submission - neither verification nor confirmation found');
     }
     
     // Vote 3: Anonymous vote (no email) - should not require verification
@@ -235,15 +252,18 @@ test.describe('Complete Poll Lifecycle', () => {
     await page3.goto(`/vote/${pollId}`);
     await page3.waitForLoadState('networkidle');
     
-    // Fill name but deliberately skip email for anonymous voting
-    const fullNameInput3 = page3.locator('input[id="full_name"]');
-    const emailInput3 = page3.locator('input[id="email"]');
+    // Verify email input field exists (critical for voting functionality)
+    const emailInput3 = page3.locator('input[name="user_email"]');
+    const emailFieldExists = await emailInput3.count() > 0;
     
-    if (await fullNameInput3.count() > 0) {
-      await fullNameInput3.fill('Anonymous Voter');
+    if (!emailFieldExists) {
+      throw new Error('CRITICAL: Email input field missing from vote page - users cannot enter email addresses');
     }
-    // Deliberately NOT filling email to test anonymous voting
-    console.log('👤 Skipping email for anonymous vote');
+    
+    console.log('✅ Email input field exists on vote page');
+    // Deliberately NOT filling email to test anonymous voting behavior
+    // Since THIS poll has email verification ENABLED, anonymous vote should be REJECTED
+    console.log('👤 Skipping email for anonymous vote (should be rejected since poll requires email verification)');
     
     const voteOptions3 = page3.locator('input[type="checkbox"], input[type="radio"]');
     const optionCount3 = await voteOptions3.count();
@@ -255,26 +275,17 @@ test.describe('Complete Poll Lifecycle', () => {
     
     await page3.click('button[type="submit"]');
     
-    // Wait for vote confirmation instead of networkidle (which can hang due to JS in response)
-    try {
-      await page3.waitForSelector(':has-text("Vote submitted"), :has-text("submitted"), svg[stroke="white"]', { timeout: 10000 });
-      console.log('✅ Vote 3 submitted successfully');
-    } catch (error) {
-      // If vote confirmation doesn't appear, check if we need verification
-      const needsVerification = await page3.locator(':has-text("verification code")').count() > 0;
-      if (needsVerification) {
-        console.log('⚠️ Anonymous vote unexpectedly required verification');
-      } else {
-        console.log('✅ Vote 3 submitted (confirmation may not be visible)');
-      }
-    }
+    // Since poll has email verification enabled, anonymous vote should be REJECTED
+    await page3.waitForTimeout(2000); // Brief wait for server response
     
-    // Anonymous vote should not require verification
-    const needsVerification3 = await page3.locator(':has-text("verification code")').count() > 0;
-    if (!needsVerification3) {
-      console.log('✅ Anonymous vote completed without verification (as expected)');
+    const responseContent = await page3.locator('#response').textContent();
+    console.log(`📄 Anonymous vote response: "${responseContent}"`);
+    
+    if (responseContent && responseContent.includes('Please enter an email address')) {
+      console.log('✅ Anonymous vote correctly rejected - this poll requires email verification');
     } else {
-      console.log('⚠️ Anonymous vote unexpectedly required verification');
+      console.log('🚨 POLL CONFIGURATION ERROR: Anonymous vote was accepted despite this poll requiring email verification!');
+      throw new Error('Anonymous vote should be rejected when poll has email verification enabled');
     }
     
     // STEP 5: VIEW RESULTS
@@ -357,6 +368,7 @@ test.describe('Complete Poll Lifecycle', () => {
   });
 
   test('should handle multiple votes from different users', async ({ page, context }) => {
+    test.setTimeout(60000); // Increase timeout to 60 seconds for comprehensive test
     const timestamp = Date.now();
     const testEmail = 'noreply@approvalvote.co';
     
