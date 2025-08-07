@@ -156,9 +156,34 @@ Connect to the server
 
 ## run in development
 
+### Set up Python virtual environment
+
+First time setup:
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # On macOS/Linux
+# OR
+venv\Scripts\activate  # On Windows
+
+# Install dependencies
+pip install -r requirements.txt
 ```
-python website.py
+
+For subsequent development sessions:
+```bash
+# Activate the existing virtual environment
+source venv/bin/activate  # On macOS/Linux
+# OR
+venv\Scripts\activate  # On Windows
+
+# Run the development server
+venv/bin/python website.py
 ```
+
+The development server will run on port 3000.
 
 ## run tests
 

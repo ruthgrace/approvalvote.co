@@ -130,3 +130,149 @@ def votes_by_number_of_candidates(winning_set, candidates):
             votes = votes - promote
         vote_overlap[0] = vote_overlap[0].union(votes)
     return vote_overlap
+
+def excess_vote_rounds(seats, candidate_counts, ballot_counts, candidate_text=None):
+    """
+    Calculate winners using excess vote method.
+    
+    Args:
+        seats: Number of seats to fill
+        ballot_counts: Dictionary where keys are frozensets of candidate IDs 
+                      and values are the count of voters who cast that ballot
+        candidate_text: Optional dictionary mapping candidate IDs to names for display
+    """
+    print("\n=== DEBUG: excess_vote_rounds called ===")
+    print(f"seats: {seats}")
+    print(f"ballot_counts type: {type(ballot_counts)}")
+    print(f"Number of unique ballots: {len(ballot_counts)}")
+    print(f"Total votes: {sum(ballot_counts.values())}")
+    
+    print("\n=== Ballot Combinations ===")
+    for ballot, count in sorted(ballot_counts.items(), key=lambda x: x[1], reverse=True):
+        if candidate_text:
+            candidates_str = ", ".join([candidate_text.get(c, f"ID {c}") for c in sorted(ballot)])
+        else:
+            candidates_str = ", ".join([f"{c}" for c in sorted(ballot)])
+        print(f"  [{candidates_str}]: {count} vote{'s' if count != 1 else ''}")
+    
+    # Get all unique candidates from all ballots
+    all_candidates = set()
+    for ballot in ballot_counts.keys():
+        all_candidates.update(ballot)
+    print(f"\nAll candidates in race: {sorted(all_candidates)}")
+    print(f"Candidate counts: {candidate_counts}")
+    print("=== END DEBUG ===\n")
+
+    rounds = []
+    i = 0
+    while i < seats:
+        print(f"\n=== ROUND {i+1} ===")
+        rounds.append({})
+        rounds[i]["ballot_counts"] = ballot_counts.copy()
+        rounds[i]["votes_per_candidate"] = candidate_counts.copy()
+
+        # Calculate vote counts from ballot_counts (handles fractional votes)
+        vote_counts = {}
+        for ballot, count in ballot_counts.items():
+            for candidate in ballot:
+                if candidate not in vote_counts:
+                    vote_counts[candidate] = 0
+                vote_counts[candidate] += count
+        
+        print(f"Vote counts this round:")
+        for cand, votes in sorted(vote_counts.items(), key=lambda x: x[1], reverse=True):
+            print(f"  Candidate {cand}: {votes:.2f} votes")
+        print(f"Total ballots in play: {sum(ballot_counts.values()):.2f}")
+        
+        max_votes = max(vote_counts.values())
+        # Get all candidates with max votes (handles ties)
+        winners_with_max = [cand for cand, votes in vote_counts.items() if votes == max_votes]
+        print(f"Winners with max votes: {winners_with_max}")
+        for j in range(len(winners_with_max)):
+            if j > 0:
+                rounds.append({})
+            rounds[i + j]["winner"] = winners_with_max[j]
+            rounds[i + j]["is_tie"] = True
+            rounds[i + j]["ballot_counts"] = ballot_counts.copy()
+            rounds[i + j]["votes_per_candidate"] = candidate_counts.copy()
+        print(f"i + len(winners_with_max): {i + len(winners_with_max)}, seats: {seats}")
+        if i + len(winners_with_max) < seats:
+            # Find the runner-up vote count (accounting for ties)
+            # Remove winners from consideration
+            remaining_vote_counts = {cand: votes for cand, votes in vote_counts.items() 
+                                    if cand not in winners_with_max}
+            threshold = max(remaining_vote_counts.values())
+            
+            # Calculate excess votes to redistribute
+            excess = max_votes - threshold
+            
+            # redistribute excess votes
+            # Find all ballots that include at least one winner
+            ballots_with_winners = {}
+            for ballot, count in ballot_counts.items():
+                # Check if this ballot contains any of the winning candidates
+                if any(winner in ballot for winner in winners_with_max):
+                    ballots_with_winners[ballot] = count
+            
+            winner_votes = len(winners_with_max) * max_votes
+            excess_fraction = {}
+            
+            # remove candidate sets that include any of the winners from ballot_counts
+            new_ballot_counts = {}
+            for ballot, count in ballot_counts.items():
+                # Only keep ballots that don't contain any winning candidates
+                if not any(winner in ballot for winner in winners_with_max):
+                    new_ballot_counts[ballot] = count
+            
+            # Update ballot_counts for the next round
+            ballot_counts = new_ballot_counts
+            print(f"ballot_counts before adding excess votes: {ballot_counts}")
+            print(f"\nBallots containing winner(s) {winners_with_max}:")
+            total_votes_with_winners = sum(ballots_with_winners.values())
+            for ballot, count in sorted(ballots_with_winners.items(), key=lambda x: x[1], reverse=True):
+                ballot_str = ", ".join([str(c) for c in sorted(ballot)])
+                print(f"  [{ballot_str}]: {count} votes")
+                excess_fraction[ballot] = count / total_votes_with_winners
+                
+                # for this candidate set, remove the winners, and add excess * excess_fraction to the resulting candidate set, in ballot_counts
+                # Remove all winners from this ballot to get the remaining candidates
+                remaining_candidates = ballot - set(winners_with_max)
+                
+                if remaining_candidates:  # Only redistribute if there are remaining candidates
+                    # Convert to frozenset so it can be used as a dictionary key
+                    remaining_ballot = frozenset(remaining_candidates)
+                    
+                    # Add the proportional excess votes to this ballot combination
+                    votes_to_add = excess * excess_fraction[ballot]
+                    
+                    if remaining_ballot in ballot_counts:
+                        ballot_counts[remaining_ballot] += votes_to_add
+                    else:
+                        ballot_counts[remaining_ballot] = votes_to_add
+                    
+                    print(f"    Redistributing {votes_to_add:.2f} votes from [{ballot_str}] to [{', '.join(str(c) for c in sorted(remaining_candidates))}]")
+            print(f"ballot_counts after adding excess votes: {ballot_counts}")
+            print(f"  Total votes for winner(s): {total_votes_with_winners}")
+            print(f"  Excess fraction: {excess_fraction}")
+            
+            # Show updated ballot counts after redistribution
+            print(f"\nUpdated ballot counts after redistribution:")
+            for ballot, count in sorted(ballot_counts.items(), key=lambda x: x[1], reverse=True):
+                ballot_str = ", ".join([str(c) for c in sorted(ballot)])
+                print(f"  [{ballot_str}]: {count:.2f} votes")
+            print(f"Total ballots after redistribution: {sum(ballot_counts.values()):.2f}")
+            
+            # Remove winners from candidate_counts for next round
+            for winner in winners_with_max:
+                if winner in candidate_counts:
+                    del candidate_counts[winner]
+        print(f"i: {i}, len(winners_with_max): {len(winners_with_max)}")
+        i = i + len(winners_with_max)
+    
+    print(f"\n=== FINAL RESULTS ===")
+    print(f"Winners selected across {len(rounds)} rounds:")
+    for idx, round_data in enumerate(rounds):
+        if "winner" in round_data:
+            print(f"  Round {idx+1}: Candidate {round_data['winner']}")
+    
+    return rounds

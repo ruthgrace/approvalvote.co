@@ -63,6 +63,35 @@ class PollDatabase:
                 candidates[vote["option"]].add(vote["user"])
         return candidates
 
+    def get_votes_by_candidate_sets(self, poll_id):
+        """
+        Returns vote data grouped by unique ballot combinations.
+        Returns a dictionary where:
+        - keys are frozensets of candidate IDs
+        - values are the count of voters who cast that exact ballot
+        """
+        # Get all votes for this poll
+        response = self.client.table("Votes").select("user", "option").eq("poll", poll_id).execute()
+        
+        # Group votes by user to get each user's ballot
+        user_ballots = {}
+        for vote in response.data:
+            user = vote["user"]
+            option = vote["option"]
+            if user not in user_ballots:
+                user_ballots[user] = set()
+            user_ballots[user].add(option)
+        
+        # Count unique ballot combinations
+        ballot_counts = {}
+        for user, ballot in user_ballots.items():
+            ballot_key = frozenset(ballot)
+            if ballot_key not in ballot_counts:
+                ballot_counts[ballot_key] = 0
+            ballot_counts[ballot_key] += 1
+        
+        return ballot_counts
+
     def get_candidate_text(self, poll_id):
         response = self.client.table("PollOptions").select("id", "option").eq("poll", poll_id).execute()
         candidate_text = {item["id"]: item["option"] for item in response.data}

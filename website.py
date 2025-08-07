@@ -7,7 +7,7 @@ import io
 from datetime import datetime
 from database import PollDatabase
 from email_service import EmailService
-from vote_utils import format_vote_confirmation, format_winners_text, sorted_candidate_sets, votes_by_candidate, votes_by_number_of_candidates
+from vote_utils import format_vote_confirmation, format_winners_text, sorted_candidate_sets, excess_vote_rounds, votes_by_candidate, votes_by_number_of_candidates
 import secret_constants
 from constants import EMAIL, TITLE, COVER_URL, DESCRIPTION, CANDIDATES, SEATS, NEW_POLL, NEW_VOTE, LOGIN, EMAIL_VERIFICATION, SELECTED, ID, VERIFICATION_CODE
 
@@ -114,12 +114,16 @@ def poll_results_page(poll_id):
         # Get vote data
         candidate_text = db.get_candidate_text(poll_id)
         candidates = db.get_votes_by_candidate(poll_id)
+        ballot_counts = db.get_votes_by_candidate_sets(poll_id)
         
         # Calculate results
         vote_tally = {candidate: len(votes) for candidate, votes in candidates.items()}
         vote_tally = dict(sorted(vote_tally.items(), key=lambda x: x[1], reverse=True))
         vote_labels = [candidate_text[c] for c in vote_tally.keys()]
         
+        # Temporarily using excess_vote_rounds to see debug output
+        sorted_sets = excess_vote_rounds(seats, candidates, ballot_counts, candidate_text)
+        # For now, still use the old method for actual results
         sorted_sets = sorted_candidate_sets(seats, candidates)
         
         # Determine winners
