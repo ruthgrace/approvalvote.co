@@ -395,7 +395,19 @@
     } else if (phase === 'redistribute') {
       if (roundIndex < excessRounds.length - 1) {
         const winnerName = candidates[excessRounds[roundIndex].winner];
-        roundInfo.innerHTML = `<strong>Redistributing excess votes:</strong> The excess votes from ${winnerName} have been redistributed. ${winnerName} retains the threshold amount, and the excess has been distributed to remaining candidates based on ballot combinations.`;
+        const winnerId = excessRounds[roundIndex].winner;
+        
+        // Get the original winner votes from the round data before redistribution
+        // We need to look at the initial round data to get the winner's original votes
+        let originalWinnerVotes = 0;
+        if (excessRounds[roundIndex].votes_per_candidate && excessRounds[roundIndex].votes_per_candidate[winnerId]) {
+          originalWinnerVotes = excessRounds[roundIndex].votes_per_candidate[winnerId].length;
+        }
+        
+        const threshold = winnerThresholds[winnerId];
+        const excess = originalWinnerVotes - threshold;
+        
+        roundInfo.innerHTML = `<strong>Redistributing excess votes:</strong> The ballots that voted for ${winnerName} have been removed from the other candidates. The ${excess.toFixed(1)} excess votes from ${winnerName} are redistributed based on what other candidates the supporters of ${winnerName} voted for.`;
       } else {
         roundInfo.innerHTML = `<strong>All seats filled!</strong> The election is complete with ${seats} winner${seats > 1 ? 's' : ''}.`;
       }
