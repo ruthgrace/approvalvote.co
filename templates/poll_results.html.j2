@@ -81,9 +81,8 @@
   let isPlaying = false;
   let animationTimer = null;
   
-  // Get all candidate IDs and prepare labels
+  // Get all candidate IDs
   const allCandidateIds = Object.keys(candidates).map(id => parseInt(id));
-  const candidateLabels = allCandidateIds.map(id => candidates[id]);
   
   // Prepare data for each round
   function prepareRoundData(roundIndex) {
@@ -113,6 +112,40 @@
     };
   }
   
+  // Function to get sorted candidate order
+  function getSortedCandidateOrder(roundIndex) {
+    const roundData = prepareRoundData(roundIndex);
+    if (!roundData) return allCandidateIds;
+    
+    // Collect all winners up to this round
+    const winners = [];
+    for (let i = 0; i <= roundIndex; i++) {
+      if (excessRounds[i] && excessRounds[i].winner) {
+        winners.push(excessRounds[i].winner);
+      }
+    }
+    
+    // Sort candidates: winners first (in order they won), then others by vote count
+    const sortedIds = [...allCandidateIds].sort((a, b) => {
+      const aIsWinner = winners.includes(a);
+      const bIsWinner = winners.includes(b);
+      
+      // If both are winners, maintain their winning order
+      if (aIsWinner && bIsWinner) {
+        return winners.indexOf(a) - winners.indexOf(b);
+      }
+      
+      // Winners come first
+      if (aIsWinner) return -1;
+      if (bIsWinner) return 1;
+      
+      // Non-winners sorted by current vote count (descending)
+      return roundData.votes[b] - roundData.votes[a];
+    });
+    
+    return sortedIds;
+  }
+  
   // Create SVG
   const svg = d3.select("#chart")
     .append("svg")
@@ -121,11 +154,10 @@
     .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
   
-  // Create scales
+  // Create scales (will be updated with sorted data)
   const x = d3.scaleBand()
     .range([0, width])
-    .padding(0.1)
-    .domain(candidateLabels);
+    .padding(0.1);
   
   // Calculate max votes across all rounds for consistent Y scale
   let maxVotes = 0;
@@ -141,41 +173,10 @@
     .range([height, 0])
     .domain([0, maxVotes * 1.1]); // Add 10% padding
   
-  // Add X axis
-  const xAxis = svg.append("g")
-    .attr("transform", `translate(0,${height})`)
-    .call(d3.axisBottom(x));
-  
-  xAxis.selectAll("text")  
-    .style("text-anchor", "middle")
-    .call(axisTextStyle)
-    .attr("y", 30)
-    .each(function(d, index, nodes) {
-      const words = d.split(/\s+/);
-      const numBars = nodes.length;
-      const maxChars = 80 / numBars;
-      let lines = [];
-      let currentLine = words[0];
-
-      for(let i = 1; i < words.length; i++) {
-        if (currentLine.length + words[i].length + 1 <= maxChars) {
-          currentLine += " " + words[i];
-        } else {
-          lines.push(currentLine);
-          currentLine = words[i];
-        }
-      }
-      lines.push(currentLine);
-
-      d3.select(this).text(null);
-      lines.forEach((line, i) => {
-        d3.select(this)
-          .append("tspan")
-          .attr("x", 0)
-          .attr("dy", i === 0 ? 0 : "1.2em")
-          .text(line);
-      });
-    });
+  // Add X axis (will be updated dynamically)
+  const xAxisGroup = svg.append("g")
+    .attr("class", "x-axis")
+    .attr("transform", `translate(0,${height})`);
   
   // Add Y axis
   svg.append("g")
@@ -201,37 +202,59 @@
       .call(axisTitleStyle)
       .text("Candidates");
   
-  // Create initial bars
-  const bars = svg.selectAll(".bar")
-    .data(allCandidateIds)
-    .enter()
-    .append("rect")
-      .attr("class", "bar")
-      .attr("x", (d, i) => x(candidateLabels[i]))
-      .attr("y", height)
-      .attr("width", x.bandwidth())
-      .attr("height", 0)
-      .attr("fill", "#2563EB")
-      .attr("rx", 4)
-      .attr("ry", 4);
+  // Container for bars (will be populated in updateChart)
+  const barsGroup = svg.append("g").attr("class", "bars-group");
   
-  // Add winner markers (initially hidden)
-  const winnerMarkers = svg.selectAll(".winner-marker")
-    .data(allCandidateIds)
-    .enter()
-    .append("text")
-      .attr("class", "winner-marker")
-      .attr("x", (d, i) => x(candidateLabels[i]) + x.bandwidth() / 2)
-      .attr("y", -10)
-      .attr("text-anchor", "middle")
-      .style("font-size", "24px")
-      .style("opacity", 0)
-      .text("👑");
+  // Container for winner markers
+  const markersGroup = svg.append("g").attr("class", "markers-group");
   
   // Function to update the chart
   function updateChart(roundIndex, phase = 'initial') {
     const roundData = prepareRoundData(roundIndex);
     if (!roundData) return;
+    
+    // Get sorted candidate order for this round
+    const sortedIds = getSortedCandidateOrder(roundIndex);
+    const sortedLabels = sortedIds.map(id => candidates[id]);
+    
+    // Update X scale domain with sorted labels
+    x.domain(sortedLabels);
+    
+    // Update X axis with transition
+    xAxisGroup
+      .transition()
+      .duration(800)
+      .call(d3.axisBottom(x))
+      .selectAll("text")
+      .style("text-anchor", "middle")
+      .call(axisTextStyle)
+      .attr("y", 30)
+      .each(function(d, index, nodes) {
+        const words = d.split(/\s+/);
+        const numBars = nodes.length;
+        const maxChars = 80 / numBars;
+        let lines = [];
+        let currentLine = words[0];
+
+        for(let i = 1; i < words.length; i++) {
+          if (currentLine.length + words[i].length + 1 <= maxChars) {
+            currentLine += " " + words[i];
+          } else {
+            lines.push(currentLine);
+            currentLine = words[i];
+          }
+        }
+        lines.push(currentLine);
+
+        d3.select(this).text(null);
+        lines.forEach((line, i) => {
+          d3.select(this)
+            .append("tspan")
+            .attr("x", 0)
+            .attr("dy", i === 0 ? 0 : "1.2em")
+            .text(line);
+        });
+      });
     
     const winners = [];
     for (let i = 0; i <= roundIndex; i++) {
@@ -240,11 +263,36 @@
       }
     }
     
-    // Update bars
-    bars.data(allCandidateIds)
+    // Update bars with data join
+    const bars = barsGroup.selectAll(".bar")
+      .data(sortedIds, d => d); // Use candidate ID as key
+    
+    // Remove exiting bars
+    bars.exit()
+      .transition()
+      .duration(400)
+      .attr("height", 0)
+      .attr("y", height)
+      .remove();
+    
+    // Add new bars
+    const barsEnter = bars.enter()
+      .append("rect")
+      .attr("class", "bar")
+      .attr("x", d => x(candidates[d]))
+      .attr("y", height)
+      .attr("width", x.bandwidth())
+      .attr("height", 0)
+      .attr("rx", 4)
+      .attr("ry", 4);
+    
+    // Update all bars (existing + new)
+    bars.merge(barsEnter)
       .transition()
       .duration(800)
+      .attr("x", d => x(candidates[d]))
       .attr("y", d => y(roundData.votes[d]))
+      .attr("width", x.bandwidth())
       .attr("height", d => height - y(roundData.votes[d]))
       .attr("fill", d => {
         if (phase === 'winner' && d === roundData.winner) {
@@ -256,18 +304,34 @@
       });
     
     // Update winner markers
-    winnerMarkers.data(allCandidateIds)
+    const markers = markersGroup.selectAll(".winner-marker")
+      .data(sortedIds, d => d);
+    
+    markers.exit().remove();
+    
+    const markersEnter = markers.enter()
+      .append("text")
+      .attr("class", "winner-marker")
+      .attr("text-anchor", "middle")
+      .style("font-size", "24px")
+      .style("opacity", 0)
+      .text("👑");
+    
+    markers.merge(markersEnter)
       .transition()
       .duration(400)
-      .style("opacity", d => winners.includes(d) ? 1 : 0)
+      .attr("x", d => x(candidates[d]) + x.bandwidth() / 2)
       .attr("y", d => {
         const voteHeight = y(roundData.votes[d]);
         return voteHeight - 10;
-      });
+      })
+      .style("opacity", d => winners.includes(d) ? 1 : 0);
     
     // Update tooltips
-    bars.selectAll("title").remove();
-    bars.append("title")
+    barsGroup.selectAll(".bar")
+      .selectAll("title").remove();
+    barsGroup.selectAll(".bar")
+      .append("title")
       .text(d => `${candidates[d]}: ${roundData.votes[d].toFixed(1)} votes`);
     
     // Update round label
@@ -299,8 +363,11 @@
         currentPhase = 'redistribute';
         updateChart(currentRound, 'redistribute');
       } else {
-        // Animation complete
+        // Animation complete - stop and schedule reset
         stopAnimation();
+        setTimeout(() => {
+          resetAnimation();
+        }, 3000); // Wait 3 seconds before resetting
       }
     } else if (currentPhase === 'redistribute') {
       currentRound++;
@@ -328,8 +395,10 @@
     document.getElementById('playBtn').textContent = 'Pause';
     animationTimer = setInterval(() => {
       nextStep();
-      if (currentRound >= excessRounds.length - 1 && currentPhase === 'redistribute') {
-        stopAnimation();
+      // Check if we've reached the end
+      if (currentRound >= excessRounds.length - 1 && currentPhase === 'winner') {
+        // Will auto-reset after showing final state
+        return;
       }
     }, 2000); // 2 seconds per step
   }
