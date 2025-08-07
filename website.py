@@ -126,8 +126,13 @@ def poll_results_page(poll_id):
         
         # Convert excess_rounds to JSON-serializable format
         excess_rounds = []
+        winning_set = set()
         for round_data in excess_rounds_raw:
             json_round = {}
+            
+            # Collect winners
+            if 'winner' in round_data and round_data['winner']:
+                winning_set.add(round_data['winner'])
             
             # Convert ballot_counts (has frozenset keys)
             if 'ballot_counts' in round_data:
@@ -150,22 +155,13 @@ def poll_results_page(poll_id):
             
             excess_rounds.append(json_round)
         
-        # For now, still use the old method for actual results display
-        sorted_sets = sorted_candidate_sets(seats, candidates)
+        # Check if there's an actual tie (more winners than seats)
+        is_tie = len(winning_set) > seats
         
-        # Determine winners
-        is_tie = len(sorted_sets) > seats and sorted_sets[seats-1][0] == sorted_sets[seats][0]
+        # Format winners text using the actual winners from excess_vote_rounds
         if is_tie:
-            tie_value = sorted_sets[0][0]
-            winning_set = set()
-            for score, candidates in sorted_sets:
-                if score == tie_value:
-                    winning_set.update(candidates)
-                else:
-                    break
             winners = "There is a tie. " + format_winners_text(winning_set, candidate_text, seats, is_tie=True)
         else:
-            winning_set = set(sorted_sets[0][1])
             winners = format_winners_text(winning_set, candidate_text, seats)
 
         # Save results
