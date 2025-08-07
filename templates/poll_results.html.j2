@@ -77,7 +77,7 @@
   
   // Animation state
   let currentRound = 0;
-  let currentPhase = 'initial'; // 'initial', 'winner', 'redistribute'
+  let currentPhase = 'initial'; // 'initial', 'winner', 'remove_ballots', 'add_excess'
   let isPlaying = false;
   let animationTimer = null;
   
@@ -88,7 +88,7 @@
   const allCandidateIds = Object.keys(candidates).map(id => parseInt(id));
   
   // Prepare data for each round
-  function prepareRoundData(roundIndex) {
+  function prepareRoundData(roundIndex, showRemovedBallots = false) {
     if (roundIndex >= excessRounds.length) return null;
     
     const round = excessRounds[roundIndex];
@@ -99,23 +99,45 @@
       voteCounts[id] = 0;
     });
     
-    // Calculate votes from ballot_counts (which has the redistributed votes)
-    if (round.ballot_counts) {
-      Object.entries(round.ballot_counts).forEach(([ballotStr, count]) => {
-        // Parse the ballot string (it's a stringified array)
-        const ballot = JSON.parse(ballotStr);
-        // Add the count to each candidate in this ballot
-        ballot.forEach(candId => {
-          if (voteCounts[parseInt(candId)] !== undefined) {
-            voteCounts[parseInt(candId)] += count;
+    if (showRemovedBallots && roundIndex > 0) {
+      // Show the state after removing winner's ballots but before adding excess
+      // This shows what happens when we remove all ballots containing the previous winner
+      const prevRound = excessRounds[roundIndex - 1];
+      
+      // Get ballots that DON'T contain the previous winner
+      if (prevRound.ballot_counts) {
+        Object.entries(prevRound.ballot_counts).forEach(([ballotStr, count]) => {
+          const ballot = JSON.parse(ballotStr);
+          // Only count ballots that don't include the previous winner
+          if (!ballot.includes(prevRound.winner)) {
+            ballot.forEach(candId => {
+              if (voteCounts[parseInt(candId)] !== undefined) {
+                voteCounts[parseInt(candId)] += count;
+              }
+            });
           }
         });
-      });
-    } else if (round.votes_per_candidate) {
-      // Fallback to votes_per_candidate for first round if needed
-      Object.entries(round.votes_per_candidate).forEach(([candId, voters]) => {
-        voteCounts[parseInt(candId)] = voters.length;
-      });
+      }
+    } else {
+      // Normal calculation
+      // Calculate votes from ballot_counts (which has the redistributed votes)
+      if (round.ballot_counts) {
+        Object.entries(round.ballot_counts).forEach(([ballotStr, count]) => {
+          // Parse the ballot string (it's a stringified array)
+          const ballot = JSON.parse(ballotStr);
+          // Add the count to each candidate in this ballot
+          ballot.forEach(candId => {
+            if (voteCounts[parseInt(candId)] !== undefined) {
+              voteCounts[parseInt(candId)] += count;
+            }
+          });
+        });
+      } else if (round.votes_per_candidate) {
+        // Fallback to votes_per_candidate for first round if needed
+        Object.entries(round.votes_per_candidate).forEach(([candId, voters]) => {
+          voteCounts[parseInt(candId)] = voters.length;
+        });
+      }
     }
     
     // Add stored thresholds for previous winners (display only, doesn't affect calculations)
@@ -132,8 +154,9 @@
   }
   
   // Function to get sorted candidate order
-  function getSortedCandidateOrder(roundIndex) {
-    const roundData = prepareRoundData(roundIndex);
+  function getSortedCandidateOrder(roundIndex, phase = 'initial') {
+    const showRemovedBallots = (phase === 'remove_ballots');
+    const roundData = prepareRoundData(roundIndex, showRemovedBallots);
     if (!roundData) return allCandidateIds;
     
     // Collect all winners up to this round
@@ -229,11 +252,12 @@
   
   // Function to update the chart
   function updateChart(roundIndex, phase = 'initial') {
-    const roundData = prepareRoundData(roundIndex);
+    const showRemovedBallots = (phase === 'remove_ballots');
+    const roundData = prepareRoundData(roundIndex, showRemovedBallots);
     if (!roundData) return;
     
     // Get sorted candidate order for this round
-    const sortedIds = getSortedCandidateOrder(roundIndex);
+    const sortedIds = getSortedCandidateOrder(roundIndex, phase);
     const sortedLabels = sortedIds.map(id => candidates[id]);
     
     // Update X scale domain with sorted labels
@@ -275,10 +299,26 @@
         });
       });
     
+    // Collect winners based on phase
     const winners = [];
-    for (let i = 0; i <= roundIndex; i++) {
-      if (excessRounds[i] && excessRounds[i].winner) {
-        winners.push(excessRounds[i].winner);
+    
+    // Only include winners that have been officially selected (during or after 'winner' phase)
+    if (phase === 'remove_ballots' || phase === 'add_excess') {
+      // During redistribution phases, only count winners from previous rounds
+      for (let i = 0; i < roundIndex; i++) {
+        if (excessRounds[i] && excessRounds[i].winner) {
+          winners.push(excessRounds[i].winner);
+        }
+      }
+    } else {
+      // During initial and winner phases, include all winners up to current round
+      for (let i = 0; i <= roundIndex; i++) {
+        if (excessRounds[i] && excessRounds[i].winner) {
+          // Only include current round winner if we're in 'winner' phase
+          if (i < roundIndex || phase === 'winner') {
+            winners.push(excessRounds[i].winner);
+          }
+        }
       }
     }
     
@@ -360,6 +400,8 @@
     const roundInfo = document.getElementById('roundDescription');
     if (phase === 'initial' && roundIndex === 0) {
       roundInfo.innerHTML = `<strong>Initial vote counts:</strong> Each candidate's total votes from all ballots.`;
+    } else if (phase === 'initial' && roundIndex > 0) {
+      roundInfo.innerHTML = `<strong>Round ${roundData.roundNumber} begins:</strong> Continuing with remaining candidates after redistributing excess votes.`;
     } else if (phase === 'winner') {
       const winnerName = candidates[roundData.winner];
       const winnerVotes = roundData.votes[roundData.winner];
@@ -387,27 +429,31 @@
           roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} wins with ${winnerVotes.toFixed(1)} votes, ${excess.toFixed(1)} more than the runner-up (${candidates[runnerUpId]} with ${runnerUpVotes.toFixed(1)} votes).`;
         } else {
           // Not final round - redistribution will happen
-          roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} wins with ${winnerVotes.toFixed(1)} votes, ${excess.toFixed(1)} more than the runner-up (${candidates[runnerUpId]} with ${runnerUpVotes.toFixed(1)} votes). These ${excess.toFixed(1)} excess votes will be redistributed proportionally based on how ${winnerName} voters filled out their ballots.`;
+          roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} wins with ${winnerVotes.toFixed(1)} votes, ${excess.toFixed(1)} more than the runner-up (${candidates[runnerUpId]} with ${runnerUpVotes.toFixed(1)} votes). The ${excess.toFixed(1)} excess votes will be redistributed.`;
         }
       } else {
         roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} wins with ${winnerVotes.toFixed(1)} votes (tied with runner-up).`;
       }
-    } else if (phase === 'redistribute') {
-      if (roundIndex < excessRounds.length - 1) {
-        const winnerName = candidates[excessRounds[roundIndex].winner];
-        const winnerId = excessRounds[roundIndex].winner;
+    } else if (phase === 'remove_ballots') {
+      if (roundIndex > 0) {
+        const prevWinner = excessRounds[roundIndex - 1].winner;
+        const prevWinnerName = candidates[prevWinner];
+        roundInfo.innerHTML = `<strong>Removing winner's ballots:</strong> All ballots that included ${prevWinnerName} have been removed. The remaining candidates now show their votes from ballots that didn't include ${prevWinnerName}.`;
+      }
+    } else if (phase === 'add_excess') {
+      if (roundIndex > 0) {
+        const prevWinner = excessRounds[roundIndex - 1].winner;
+        const prevWinnerName = candidates[prevWinner];
         
-        // Get the original winner votes from the round data before redistribution
-        // We need to look at the initial round data to get the winner's original votes
+        // Calculate the excess
         let originalWinnerVotes = 0;
-        if (excessRounds[roundIndex].votes_per_candidate && excessRounds[roundIndex].votes_per_candidate[winnerId]) {
-          originalWinnerVotes = excessRounds[roundIndex].votes_per_candidate[winnerId].length;
+        if (excessRounds[roundIndex - 1].votes_per_candidate && excessRounds[roundIndex - 1].votes_per_candidate[prevWinner]) {
+          originalWinnerVotes = excessRounds[roundIndex - 1].votes_per_candidate[prevWinner].length;
         }
-        
-        const threshold = winnerThresholds[winnerId];
+        const threshold = winnerThresholds[prevWinner];
         const excess = originalWinnerVotes - threshold;
         
-        roundInfo.innerHTML = `<strong>Redistributing excess votes:</strong> The ballots that voted for ${winnerName} have been removed from the other candidates. The ${excess.toFixed(1)} excess votes from ${winnerName} are redistributed based on what other candidates the supporters of ${winnerName} voted for.`;
+        roundInfo.innerHTML = `<strong>Adding excess votes:</strong> The ${excess.toFixed(1)} excess votes from ${prevWinnerName} are being redistributed to the remaining candidates based on which other candidates ${prevWinnerName}'s supporters voted for.`;
       } else {
         roundInfo.innerHTML = `<strong>All seats filled!</strong> The election is complete with ${seats} winner${seats > 1 ? 's' : ''}.`;
       }
@@ -421,8 +467,10 @@
       updateChart(currentRound, 'winner');
     } else if (currentPhase === 'winner') {
       if (currentRound < excessRounds.length - 1) {
-        currentPhase = 'redistribute';
-        updateChart(currentRound, 'redistribute');
+        // Move to remove_ballots phase
+        currentRound++;
+        currentPhase = 'remove_ballots';
+        updateChart(currentRound, 'remove_ballots');
       } else {
         // Animation complete - stop and schedule reset
         stopAnimation();
@@ -430,8 +478,10 @@
           resetAnimation();
         }, 3000); // Wait 3 seconds before resetting
       }
-    } else if (currentPhase === 'redistribute') {
-      currentRound++;
+    } else if (currentPhase === 'remove_ballots') {
+      currentPhase = 'add_excess';
+      updateChart(currentRound, 'add_excess');
+    } else if (currentPhase === 'add_excess') {
       currentPhase = 'initial';
       updateChart(currentRound, 'initial');
     }
@@ -439,15 +489,18 @@
   
   function prevStep() {
     if (currentPhase === 'initial' && currentRound > 0) {
+      currentPhase = 'add_excess';
+      updateChart(currentRound, 'add_excess');
+    } else if (currentPhase === 'add_excess') {
+      currentPhase = 'remove_ballots';
+      updateChart(currentRound, 'remove_ballots');
+    } else if (currentPhase === 'remove_ballots') {
       currentRound--;
-      currentPhase = 'redistribute';
-      updateChart(currentRound, 'redistribute');
+      currentPhase = 'winner';
+      updateChart(currentRound, 'winner');
     } else if (currentPhase === 'winner') {
       currentPhase = 'initial';
       updateChart(currentRound, 'initial');
-    } else if (currentPhase === 'redistribute') {
-      currentPhase = 'winner';
-      updateChart(currentRound, 'winner');
     }
   }
   
@@ -461,7 +514,7 @@
         // Will auto-reset after showing final state
         return;
       }
-    }, 2000); // 2 seconds per step
+    }, 3000); // 3 seconds per step to allow time to read captions
   }
   
   function stopAnimation() {
