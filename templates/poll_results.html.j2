@@ -9,8 +9,31 @@
     <div style="display: flex; justify-content: space-around; gap-20px;">
       <div style="flex: 1;">
         <h2 class="text-2xl font-bold mb-4">Votes</h2>
-        <p>Here is a chart of the vote counts for each candidate. Keep in mind that voters can vote for as many candidates as they want.</p>
+        <p>Here is an animated visualization of the multi-winner approval voting process. Watch as winners are selected and excess votes are redistributed in each round.</p>
+        
+        <!-- Animation controls -->
+        <div class="flex gap-4 mb-4 items-center">
+          <button id="playBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            Play Animation
+          </button>
+          <button id="resetBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+            Reset
+          </button>
+          <button id="prevBtn" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+            ← Previous
+          </button>
+          <button id="nextBtn" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+            Next →
+          </button>
+          <span id="roundLabel" class="font-medium text-gray-700 ml-4">Round 1</span>
+        </div>
+        
         <div id="chart"></div>
+        
+        <!-- Round information display -->
+        <div id="roundInfo" class="mt-4 p-4 bg-gray-50 rounded-lg">
+          <div id="roundDescription" class="text-gray-700"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -41,16 +64,55 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="{{ url_for('static', filename='js/chartStyles.js') }}"></script>
 <script>
+  // Parse data from Jinja
+  const candidates = {{ candidates|tojson }};
+  const excessRounds = {{ excess_rounds|tojson }};
+  const seats = {{ seats }};
+  
   // Set dimensions
   const margin = {top: 20, right: 20, bottom: 80, left: 60};
   const width = 800 - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
   const totalHeight = height + margin.top + margin.bottom;
-
-  // Parse the data from Jinja
-  const voteLabels = {{ vote_labels|tojson }};
-  const voteTally = {{ vote_tally|tojson }};
-
+  
+  // Animation state
+  let currentRound = 0;
+  let currentPhase = 'initial'; // 'initial', 'winner', 'redistribute'
+  let isPlaying = false;
+  let animationTimer = null;
+  
+  // Get all candidate IDs and prepare labels
+  const allCandidateIds = Object.keys(candidates).map(id => parseInt(id));
+  const candidateLabels = allCandidateIds.map(id => candidates[id]);
+  
+  // Prepare data for each round
+  function prepareRoundData(roundIndex) {
+    if (roundIndex >= excessRounds.length) return null;
+    
+    const round = excessRounds[roundIndex];
+    const voteCounts = {};
+    
+    // Initialize all candidates with 0
+    allCandidateIds.forEach(id => {
+      voteCounts[id] = 0;
+    });
+    
+    // Calculate votes from the round's votes_per_candidate
+    if (round.votes_per_candidate) {
+      Object.entries(round.votes_per_candidate).forEach(([candId, voters]) => {
+        // voters is now an array after JSON conversion
+        voteCounts[parseInt(candId)] = voters.length;
+      });
+    }
+    
+    return {
+      votes: voteCounts,
+      winner: round.winner,
+      isInitial: roundIndex === 0,
+      roundNumber: roundIndex + 1
+    };
+  }
+  
   // Create SVG
   const svg = d3.select("#chart")
     .append("svg")
@@ -58,22 +120,33 @@
       .attr("height", totalHeight)
     .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
-
+  
   // Create scales
   const x = d3.scaleBand()
     .range([0, width])
     .padding(0.1)
-    .domain(voteLabels);
-
+    .domain(candidateLabels);
+  
+  // Calculate max votes across all rounds for consistent Y scale
+  let maxVotes = 0;
+  for (let i = 0; i < excessRounds.length; i++) {
+    const roundData = prepareRoundData(i);
+    if (roundData) {
+      const roundMax = Math.max(...Object.values(roundData.votes));
+      maxVotes = Math.max(maxVotes, roundMax);
+    }
+  }
+  
   const y = d3.scaleLinear()
     .range([height, 0])
-    .domain([0, d3.max(voteTally)]);
-
+    .domain([0, maxVotes * 1.1]); // Add 10% padding
+  
   // Add X axis
-  svg.append("g")
+  const xAxis = svg.append("g")
     .attr("transform", `translate(0,${height})`)
-    .call(d3.axisBottom(x))
-    .selectAll("text")  
+    .call(d3.axisBottom(x));
+  
+  xAxis.selectAll("text")  
     .style("text-anchor", "middle")
     .call(axisTextStyle)
     .attr("y", 30)
@@ -103,16 +176,16 @@
           .text(line);
       });
     });
-
+  
   // Add Y axis
   svg.append("g")
     .attr("transform", "translate(-10,0)")
     .call(d3.axisLeft(y)
-      .ticks(Math.min(10, d3.max(voteTally)))
+      .ticks(Math.min(10, maxVotes))
       .tickFormat(d3.format("d")))
     .selectAll("text")
     .call(axisTextStyle);
-
+  
   // Add Y axis title
   svg.append("text")
       .attr("transform", "rotate(-90)")
@@ -121,32 +194,184 @@
       .attr("dy", "1em")
       .call(axisTitleStyle)
       .text("Votes");
-
+  
   // Add X axis title
   svg.append("text")
       .attr("transform", `translate(${width/2}, ${height + margin.bottom})`)
       .call(axisTitleStyle)
       .text("Candidates");
-
-  // Create bars
-  svg.selectAll(".bar")
-    .data(voteTally)
+  
+  // Create initial bars
+  const bars = svg.selectAll(".bar")
+    .data(allCandidateIds)
     .enter()
     .append("rect")
       .attr("class", "bar")
-      .attr("x", (d, i) => x(voteLabels[i]))
-      .attr("y", d => y(d))
+      .attr("x", (d, i) => x(candidateLabels[i]))
+      .attr("y", height)
       .attr("width", x.bandwidth())
-      .attr("height", d => height - y(d))
+      .attr("height", 0)
       .attr("fill", "#2563EB")
       .attr("rx", 4)
       .attr("ry", 4);
-
-  // Add tooltips
-  svg.selectAll(".bar")
-    .append("title")
-    .text((d, i) => `${voteLabels[i]}: ${d} votes`);
-
+  
+  // Add winner markers (initially hidden)
+  const winnerMarkers = svg.selectAll(".winner-marker")
+    .data(allCandidateIds)
+    .enter()
+    .append("text")
+      .attr("class", "winner-marker")
+      .attr("x", (d, i) => x(candidateLabels[i]) + x.bandwidth() / 2)
+      .attr("y", -10)
+      .attr("text-anchor", "middle")
+      .style("font-size", "24px")
+      .style("opacity", 0)
+      .text("👑");
+  
+  // Function to update the chart
+  function updateChart(roundIndex, phase = 'initial') {
+    const roundData = prepareRoundData(roundIndex);
+    if (!roundData) return;
+    
+    const winners = [];
+    for (let i = 0; i <= roundIndex; i++) {
+      if (excessRounds[i] && excessRounds[i].winner) {
+        winners.push(excessRounds[i].winner);
+      }
+    }
+    
+    // Update bars
+    bars.data(allCandidateIds)
+      .transition()
+      .duration(800)
+      .attr("y", d => y(roundData.votes[d]))
+      .attr("height", d => height - y(roundData.votes[d]))
+      .attr("fill", d => {
+        if (phase === 'winner' && d === roundData.winner) {
+          return "#10B981"; // Green for new winner
+        } else if (winners.includes(d)) {
+          return "#10B981"; // Keep winners green
+        }
+        return "#2563EB"; // Blue for others
+      });
+    
+    // Update winner markers
+    winnerMarkers.data(allCandidateIds)
+      .transition()
+      .duration(400)
+      .style("opacity", d => winners.includes(d) ? 1 : 0)
+      .attr("y", d => {
+        const voteHeight = y(roundData.votes[d]);
+        return voteHeight - 10;
+      });
+    
+    // Update tooltips
+    bars.selectAll("title").remove();
+    bars.append("title")
+      .text(d => `${candidates[d]}: ${roundData.votes[d].toFixed(1)} votes`);
+    
+    // Update round label
+    document.getElementById('roundLabel').textContent = `Round ${roundData.roundNumber}`;
+    
+    // Update round description
+    const roundInfo = document.getElementById('roundDescription');
+    if (phase === 'initial' && roundIndex === 0) {
+      roundInfo.innerHTML = `<strong>Initial vote counts:</strong> Each candidate's total votes from all ballots.`;
+    } else if (phase === 'winner') {
+      const winnerName = candidates[roundData.winner];
+      roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} has the most votes this round and wins a seat!`;
+    } else if (phase === 'redistribute') {
+      if (roundIndex < excessRounds.length - 1) {
+        roundInfo.innerHTML = `<strong>Redistributing excess votes:</strong> Votes exceeding the threshold are redistributed proportionally to remaining candidates based on ballot combinations.`;
+      } else {
+        roundInfo.innerHTML = `<strong>All seats filled!</strong> The election is complete with ${seats} winner${seats > 1 ? 's' : ''}.`;
+      }
+    }
+  }
+  
+  // Animation functions
+  function nextStep() {
+    if (currentPhase === 'initial') {
+      currentPhase = 'winner';
+      updateChart(currentRound, 'winner');
+    } else if (currentPhase === 'winner') {
+      if (currentRound < excessRounds.length - 1) {
+        currentPhase = 'redistribute';
+        updateChart(currentRound, 'redistribute');
+      } else {
+        // Animation complete
+        stopAnimation();
+      }
+    } else if (currentPhase === 'redistribute') {
+      currentRound++;
+      currentPhase = 'initial';
+      updateChart(currentRound, 'initial');
+    }
+  }
+  
+  function prevStep() {
+    if (currentPhase === 'initial' && currentRound > 0) {
+      currentRound--;
+      currentPhase = 'redistribute';
+      updateChart(currentRound, 'redistribute');
+    } else if (currentPhase === 'winner') {
+      currentPhase = 'initial';
+      updateChart(currentRound, 'initial');
+    } else if (currentPhase === 'redistribute') {
+      currentPhase = 'winner';
+      updateChart(currentRound, 'winner');
+    }
+  }
+  
+  function playAnimation() {
+    isPlaying = true;
+    document.getElementById('playBtn').textContent = 'Pause';
+    animationTimer = setInterval(() => {
+      nextStep();
+      if (currentRound >= excessRounds.length - 1 && currentPhase === 'redistribute') {
+        stopAnimation();
+      }
+    }, 2000); // 2 seconds per step
+  }
+  
+  function stopAnimation() {
+    isPlaying = false;
+    document.getElementById('playBtn').textContent = 'Play Animation';
+    if (animationTimer) {
+      clearInterval(animationTimer);
+      animationTimer = null;
+    }
+  }
+  
+  function resetAnimation() {
+    stopAnimation();
+    currentRound = 0;
+    currentPhase = 'initial';
+    updateChart(0, 'initial');
+  }
+  
+  // Event listeners
+  document.getElementById('playBtn').addEventListener('click', () => {
+    if (isPlaying) {
+      stopAnimation();
+    } else {
+      playAnimation();
+    }
+  });
+  
+  document.getElementById('resetBtn').addEventListener('click', resetAnimation);
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    stopAnimation();
+    nextStep();
+  });
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    stopAnimation();
+    prevStep();
+  });
+  
+  // Initialize with first round
+  updateChart(0, 'initial');
+  
   // Set container height
   d3.select("#chart")
     .style("height", totalHeight + "px")

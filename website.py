@@ -121,9 +121,36 @@ def poll_results_page(poll_id):
         vote_tally = dict(sorted(vote_tally.items(), key=lambda x: x[1], reverse=True))
         vote_labels = [candidate_text[c] for c in vote_tally.keys()]
         
-        # Temporarily using excess_vote_rounds to see debug output
-        sorted_sets = excess_vote_rounds(seats, candidates, ballot_counts, candidate_text)
-        # For now, still use the old method for actual results
+        # Calculate using excess vote method for animation
+        excess_rounds_raw = excess_vote_rounds(seats, candidates, ballot_counts, candidate_text)
+        
+        # Convert excess_rounds to JSON-serializable format
+        excess_rounds = []
+        for round_data in excess_rounds_raw:
+            json_round = {}
+            
+            # Convert ballot_counts (has frozenset keys)
+            if 'ballot_counts' in round_data:
+                json_round['ballot_counts'] = {
+                    str(list(ballot)): count 
+                    for ballot, count in round_data['ballot_counts'].items()
+                }
+            
+            # Convert votes_per_candidate (has set values)
+            if 'votes_per_candidate' in round_data:
+                json_round['votes_per_candidate'] = {
+                    str(cand_id): list(voters) 
+                    for cand_id, voters in round_data['votes_per_candidate'].items()
+                }
+            
+            # Copy other fields as-is
+            for key in ['winner', 'is_tie']:
+                if key in round_data:
+                    json_round[key] = round_data[key]
+            
+            excess_rounds.append(json_round)
+        
+        # For now, still use the old method for actual results display
         sorted_sets = sorted_candidate_sets(seats, candidates)
         
         # Determine winners
@@ -153,7 +180,8 @@ def poll_results_page(poll_id):
             vote_labels=vote_labels,
             vote_tally=list(vote_tally.values()),
             title=title,
-            description=description
+            description=description,
+            excess_rounds=excess_rounds
         )
 
     except Exception as err:
