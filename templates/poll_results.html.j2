@@ -81,6 +81,9 @@
   let isPlaying = false;
   let animationTimer = null;
   
+  // Store winner thresholds (the votes they retain after winning)
+  const winnerThresholds = {};
+  
   // Get all candidate IDs
   const allCandidateIds = Object.keys(candidates).map(id => parseInt(id));
   
@@ -96,13 +99,29 @@
       voteCounts[id] = 0;
     });
     
-    // Calculate votes from the round's votes_per_candidate
-    if (round.votes_per_candidate) {
+    // Calculate votes from ballot_counts (which has the redistributed votes)
+    if (round.ballot_counts) {
+      Object.entries(round.ballot_counts).forEach(([ballotStr, count]) => {
+        // Parse the ballot string (it's a stringified array)
+        const ballot = JSON.parse(ballotStr);
+        // Add the count to each candidate in this ballot
+        ballot.forEach(candId => {
+          if (voteCounts[parseInt(candId)] !== undefined) {
+            voteCounts[parseInt(candId)] += count;
+          }
+        });
+      });
+    } else if (round.votes_per_candidate) {
+      // Fallback to votes_per_candidate for first round if needed
       Object.entries(round.votes_per_candidate).forEach(([candId, voters]) => {
-        // voters is now an array after JSON conversion
         voteCounts[parseInt(candId)] = voters.length;
       });
     }
+    
+    // Add stored thresholds for previous winners (display only, doesn't affect calculations)
+    Object.entries(winnerThresholds).forEach(([winnerId, threshold]) => {
+      voteCounts[parseInt(winnerId)] = threshold;
+    });
     
     return {
       votes: voteCounts,
@@ -343,10 +362,40 @@
       roundInfo.innerHTML = `<strong>Initial vote counts:</strong> Each candidate's total votes from all ballots.`;
     } else if (phase === 'winner') {
       const winnerName = candidates[roundData.winner];
-      roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} has the most votes this round and wins a seat!`;
+      const winnerVotes = roundData.votes[roundData.winner];
+      
+      // Find runner-up (highest non-winner votes)
+      let runnerUpVotes = 0;
+      let runnerUpId = null;
+      Object.entries(roundData.votes).forEach(([candId, votes]) => {
+        const id = parseInt(candId);
+        if (id !== roundData.winner && votes > runnerUpVotes && !(id in winnerThresholds)) {
+          runnerUpVotes = votes;
+          runnerUpId = id;
+        }
+      });
+      
+      // Store the threshold for this winner
+      winnerThresholds[roundData.winner] = runnerUpVotes;
+      
+      const excess = winnerVotes - runnerUpVotes;
+      const isFinalRound = roundIndex >= excessRounds.length - 1;
+      
+      if (excess > 0) {
+        if (isFinalRound) {
+          // Final round - no redistribution will happen
+          roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} wins with ${winnerVotes.toFixed(1)} votes, ${excess.toFixed(1)} more than the runner-up (${candidates[runnerUpId]} with ${runnerUpVotes.toFixed(1)} votes).`;
+        } else {
+          // Not final round - redistribution will happen
+          roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} wins with ${winnerVotes.toFixed(1)} votes, ${excess.toFixed(1)} more than the runner-up (${candidates[runnerUpId]} with ${runnerUpVotes.toFixed(1)} votes). These ${excess.toFixed(1)} excess votes will be redistributed proportionally based on how ${winnerName} voters filled out their ballots.`;
+        }
+      } else {
+        roundInfo.innerHTML = `<strong>Winner selected:</strong> ${winnerName} wins with ${winnerVotes.toFixed(1)} votes (tied with runner-up).`;
+      }
     } else if (phase === 'redistribute') {
       if (roundIndex < excessRounds.length - 1) {
-        roundInfo.innerHTML = `<strong>Redistributing excess votes:</strong> Votes exceeding the threshold are redistributed proportionally to remaining candidates based on ballot combinations.`;
+        const winnerName = candidates[excessRounds[roundIndex].winner];
+        roundInfo.innerHTML = `<strong>Redistributing excess votes:</strong> The excess votes from ${winnerName} have been redistributed. ${winnerName} retains the threshold amount, and the excess has been distributed to remaining candidates based on ballot combinations.`;
       } else {
         roundInfo.innerHTML = `<strong>All seats filled!</strong> The election is complete with ${seats} winner${seats > 1 ? 's' : ''}.`;
       }
@@ -416,6 +465,10 @@
     stopAnimation();
     currentRound = 0;
     currentPhase = 'initial';
+    // Clear stored winner thresholds
+    for (let key in winnerThresholds) {
+      delete winnerThresholds[key];
+    }
     updateChart(0, 'initial');
   }
   
