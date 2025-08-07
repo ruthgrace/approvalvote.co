@@ -245,63 +245,137 @@ def download_votes_csv(poll_id):
 @app.route("/resultsubmit", methods=["POST"])
 def compare_results():
     poll_id = request.form.get("poll_id")
-    poll_options = request.form.getlist("poll_option")
+    poll_option = request.form.get("poll_option")  # Single option now
     seats = int(request.form.get("seats"))
-    if len(poll_options) != seats:
-        return f"You must select the same number of options as the number of winners. The number of winners is {seats}."
-    desired_candidates = {}
-    for option in poll_options:
-        (option_id, option_name) = option.split("|", maxsplit=1)
-        desired_candidates[int(option_id)] = option_name
+    
+    if not poll_option:
+        return "<div class='text-red-600'>Please select a candidate.</div>"
+    
+    # Parse the selected candidate
+    option_id, option_name = poll_option.split("|", maxsplit=1)
+    selected_candidate_id = int(option_id)
+    
     try:
-        response = supabase.table("PollOptions").select("id", "option", "winner").eq("poll", poll_id).execute()
-        winners = []
-        actual_candidates = []
-        candidate_text = {}
-        for item in response.data:
-            if item["winner"]:
-                winners.append(item["id"])
-                actual_candidates.append(item["option"])
-            candidate_text[item["id"]] = item["option"]
-        # remove extra winners in the case of a tie, for results comparison only
-        tie = False
-        if len(winners) > seats:
-            winners = winners[0:seats]
-            actual_candidates = actual_candidates[0:seats]
-            tie = True
-        candidates = votes_by_candidate(poll_id, supabase, candidate_ids=list(candidate_text.keys()))
-        actual_results = votes_by_number_of_candidates(winners, candidates)
-        max_votes = 0
-        actual_vote_tally = []
-        for result in actual_results:
-            actual_vote_tally.append(len(result))
-            if len(result) > max_votes:
-                max_votes = len(result)
-        desired_results = votes_by_number_of_candidates(list(desired_candidates.keys()), candidates)
-        desired_vote_tally = []
-        for result in desired_results:
-            desired_vote_tally.append(len(result))
-            if len(result) > max_votes:
-                max_votes = len(result)
-        actual_candidates_text = []
-        desired_candidates_text = []
-        if len(actual_candidates) == 1:
-            actual_candidates_text.append(actual_candidates[0])
-            desired_candidates_text.append(list(desired_candidates.values())[0])
-        else:
-            for i in range(len(actual_candidates)):
-                if i == 0:
-                    actual_candidates_text.append(f"Votes for {i+1} candidate in this set")
-                    desired_candidates_text.append(f"Votes for {i+1} candidate in this set")
+        # Get all candidates and their vote counts
+        candidates = db.get_votes_by_candidate(poll_id)
+        candidate_text = db.get_candidate_text(poll_id)
+        ballot_counts = db.get_votes_by_candidate_sets(poll_id)
+        
+        # Run excess_vote_rounds to get the winners in order
+        excess_rounds = excess_vote_rounds(seats, candidates, ballot_counts, candidate_text)
+        
+        # Extract winners and their vote counts from each round
+        winners_in_order = []
+        winner_votes_by_round = {}
+        selected_votes_by_round = {}
+        
+        for round_idx, round_data in enumerate(excess_rounds):
+            if 'winner' in round_data and round_data['winner']:
+                winner_id = round_data['winner']
+                winners_in_order.append(winner_id)
+                
+                # Get winner's votes in their winning round
+                if 'votes_per_candidate' in round_data and winner_id in round_data['votes_per_candidate']:
+                    winner_votes_by_round[winner_id] = len(round_data['votes_per_candidate'][winner_id])
+                
+                # Get selected candidate's votes in each round
+                if 'votes_per_candidate' in round_data and selected_candidate_id in round_data['votes_per_candidate']:
+                    selected_votes_by_round[round_idx] = len(round_data['votes_per_candidate'][selected_candidate_id])
+                elif 'ballot_counts' in round_data:
+                    # Calculate from ballot_counts if not in votes_per_candidate
+                    vote_count = 0
+                    for ballot, count in round_data['ballot_counts'].items():
+                        if selected_candidate_id in ballot:
+                            vote_count += count
+                    selected_votes_by_round[round_idx] = vote_count
                 else:
-                    actual_candidates_text.append(f"Votes for {i+1} candidates in this set")
-                    desired_candidates_text.append(f"Votes for {i+1} candidates in this set")
-        return render_template('alternate_results.html.j2', actual_candidates=actual_candidates,
-        actual_chart_labels=actual_candidates_text, desired_candidates=list(desired_candidates.values()), 
-        desired_chart_labels=desired_candidates_text, actual_vote_tally=actual_vote_tally, desired_vote_tally=desired_vote_tally, max_votes=max_votes, tie=tie)
+                    selected_votes_by_round[round_idx] = 0
+        
+        # Get initial selected candidate's vote count
+        initial_selected_votes = len(candidates.get(selected_candidate_id, set()))
+        
+        # Check if selected candidate is a winner
+        if selected_candidate_id in winners_in_order:
+            position = winners_in_order.index(selected_candidate_id) + 1
+            position_text = "1st" if position == 1 else "2nd" if position == 2 else f"{position}th"
+            return f"""
+            <div class='p-4 bg-green-50 border border-green-300 rounded-lg'>
+                <h3 class='font-bold text-green-800 mb-2'>Your candidate won!</h3>
+                <p class='text-green-700'>{option_name} finished in {position_text} place with {initial_selected_votes} votes.</p>
+            </div>
+            """
+        
+        # Calculate how many votes short for each position
+        vote_differences = []
+        
+        for i, winner_id in enumerate(winners_in_order[:seats]):
+            position = i + 1
+            position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
+            winner_name = candidate_text[winner_id]
+            
+            # For round 1, use initial votes
+            if i == 0:
+                winner_vote_count = winner_votes_by_round[winner_id]
+                selected_vote_count = initial_selected_votes
+                votes_needed = winner_vote_count - selected_vote_count + 1  # +1 to beat, not tie
+                
+                # For 1st place, need votes that don't overlap with the winner
+                exclusion_text = f" who did not also vote for {winner_name}"
+                
+                if votes_needed > 0:
+                    vote_differences.append(f"<li>{position_text} place ({winner_name}): <strong>{votes_needed} more vote{'s' if votes_needed != 1 else ''}</strong> needed{exclusion_text}</li>")
+                else:
+                    vote_differences.append(f"<li>{position_text} place ({winner_name}): Had enough votes but lost in the tie-breaking</li>")
+            else:
+                # For subsequent rounds, calculate votes from ballot_counts after redistribution
+                # The winner's vote count in round i is from ballot_counts
+                round_data = excess_rounds[i]
+                
+                # Calculate winner's actual votes from ballot_counts
+                winner_vote_count = 0
+                if 'ballot_counts' in round_data:
+                    for ballot, count in round_data['ballot_counts'].items():
+                        if winner_id in ballot:
+                            winner_vote_count += count
+                
+                # Calculate selected candidate's votes from ballot_counts
+                selected_vote_count = 0
+                if 'ballot_counts' in round_data:
+                    for ballot, count in round_data['ballot_counts'].items():
+                        if selected_candidate_id in ballot:
+                            selected_vote_count += count
+                
+                # Round to 1 decimal place for display
+                winner_vote_count = round(winner_vote_count, 1)
+                selected_vote_count = round(selected_vote_count, 1)
+                votes_needed = round(winner_vote_count - selected_vote_count + 0.1, 1)  # +0.1 to beat, not tie
+                
+                # Build the exclusion list text - include ALL winners up to this position
+                all_winners_so_far = [candidate_text[winners_in_order[j]] for j in range(i + 1)]
+                if len(all_winners_so_far) == 1:
+                    exclusion_text = f" who did not also vote for {all_winners_so_far[0]}"
+                else:
+                    exclusion_text = f" who did not also vote for {' or '.join(all_winners_so_far)}"
+                
+                if votes_needed > 0:
+                    vote_differences.append(f"<li>{position_text} place ({winner_name}): <strong>{votes_needed} more vote{'s' if votes_needed != 1 else ''}</strong> needed{exclusion_text}</li>")
+                else:
+                    vote_differences.append(f"<li>{position_text} place ({winner_name}): Had enough votes but lost in the redistribution</li>")
+        
+        return f"""
+        <div class='p-4 bg-blue-50 border border-blue-300 rounded-lg'>
+            <h3 class='font-bold text-blue-800 mb-2'>Vote Analysis for {option_name}</h3>
+            <p class='text-blue-700 mb-2'>Your candidate received {initial_selected_votes} vote{'s' if initial_selected_votes != 1 else ''}.</p>
+            <p class='text-blue-700 mb-2'>To win each position, they would have needed:</p>
+            <ul class='list-disc list-inside text-blue-700'>
+                {''.join(vote_differences)}
+            </ul>
+        </div>
+        """
+        
     except Exception as err:
         print(traceback.format_exc())
-        return type(err).__name__
+        return f"<div class='text-red-600'>Error: {type(err).__name__}</div>"
 
 @app.route("/new_user", methods=["POST"])
 def new_user():

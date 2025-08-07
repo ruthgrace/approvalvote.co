@@ -41,18 +41,17 @@
 
   <h2 class="text-2xl font-medium">Did you have a different preferred result?</h2>
   <div class="bg-gray-50 rounded-3xl p-8 border border-gray-300 space-y-4">
-    <p>You can see how many more votes the winners got than your preferred result. What was your preferred result?</p>
+    <p>Select your preferred candidate to see how many votes they were short of winning each position.</p>
     <form hx-post="/resultsubmit" hx-target="#resultresponse" hx-swap="innerHTML">
       <input type="hidden" name="poll_id" value="{{ poll_id }}" />
       <input type="hidden" name="seats" value="{{ seats }}" />
       {% for id, candidate in candidates.items() %}
-      <label>
-        <input type="checkbox" name="poll_option" value="{{id}}|{{candidate}}" /> {{candidate}}
+      <label class="block py-1">
+        <input type="radio" name="poll_option" value="{{id}}|{{candidate}}" class="mr-2" /> {{candidate}}
       </label>
-      <br />
       {% endfor %}
     </div>
-    <button type="resultsubmit" class="btn-primary">See how close your preferred candidates were to winning</button>
+    <button type="submit" class="btn-primary">See how close your preferred candidate was to winning</button>
   </form>
   <div id="resultresponse"></div>
   
