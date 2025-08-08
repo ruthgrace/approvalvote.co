@@ -237,9 +237,9 @@
       .call(axisTitleStyle)
       .text("Votes");
   
-  // Add X axis title
-  svg.append("text")
-      .attr("transform", `translate(${width/2}, ${height + margin.bottom})`)
+  // Add X axis title (will be positioned dynamically)
+  const xAxisTitle = svg.append("text")
+      .attr("class", "x-axis-title")
       .call(axisTitleStyle)
       .text("Candidates");
   
@@ -320,6 +320,17 @@
             .text(line);
         });
       });
+    
+    // Calculate the actual height of x-axis labels
+    let maxLabelHeight = 0;
+    xAxisGroup.selectAll("text").each(function() {
+      const bbox = this.getBBox();
+      maxLabelHeight = Math.max(maxLabelHeight, bbox.height);
+    });
+    
+    // Position the X axis title just below the labels
+    d3.select(".x-axis-title")
+      .attr("transform", `translate(${width/2}, ${height + maxLabelHeight + 35})`);
     
     // Add transition to the axis group after text is set up
     xAxisGroup
