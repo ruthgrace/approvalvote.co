@@ -4,6 +4,7 @@ import itertools
 import traceback
 import csv
 import io
+import math
 from datetime import datetime
 from database import PollDatabase
 from email_service import EmailService
@@ -297,11 +298,15 @@ def compare_results():
         # Check if selected candidate is a winner
         if selected_candidate_id in winners_in_order:
             position = winners_in_order.index(selected_candidate_id) + 1
-            position_text = "1st" if position == 1 else "2nd" if position == 2 else f"{position}th"
+            position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
+            
+            # Get the actual vote count for the winner
+            winner_vote_count = winner_votes_by_round.get(selected_candidate_id, initial_selected_votes)
+            
             return f"""
             <div class='p-4 bg-green-50 border border-green-300 rounded-lg'>
                 <h3 class='font-bold text-green-800 mb-2'>Your candidate won!</h3>
-                <p class='text-green-700'>{option_name} finished in {position_text} place with {initial_selected_votes} votes.</p>
+                <p class='text-green-700'>{option_name} finished in {position_text} place with {winner_vote_count} votes.</p>
             </div>
             """
         
@@ -345,10 +350,10 @@ def compare_results():
                         if selected_candidate_id in ballot:
                             selected_vote_count += count
                 
-                # Round to 1 decimal place for display
-                winner_vote_count = round(winner_vote_count, 1)
-                selected_vote_count = round(selected_vote_count, 1)
-                votes_needed = round(winner_vote_count - selected_vote_count + 0.1, 1)  # +0.1 to beat, not tie
+                # Calculate the difference and round up to get whole votes needed
+                vote_difference = winner_vote_count - selected_vote_count
+                # Round up to next whole number since we need actual voters
+                votes_needed = math.ceil(vote_difference + 0.01)  # +0.01 to beat, not just tie
                 
                 # Build the exclusion list text - include ALL winners up to this position
                 all_winners_so_far = [candidate_text[winners_in_order[j]] for j in range(i + 1)]
