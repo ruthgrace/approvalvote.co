@@ -69,7 +69,7 @@
   const seats = {{ seats }};
   
   // Set dimensions
-  const margin = {top: 20, right: 20, bottom: 80, left: 60};
+  const margin = {top: 20, right: 20, bottom: 120, left: 60};
   const width = 800 - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
   const totalHeight = height + margin.top + margin.bottom;
@@ -273,41 +273,58 @@
     // Update X scale domain with sorted labels
     x.domain(sortedLabels);
     
-    // Update X axis with transition
+    // Update X axis without transition first
     xAxisGroup
-      .transition()
-      .duration(800)
-      .call(d3.axisBottom(x))
-      .selectAll("text")
+      .call(d3.axisBottom(x));
+    
+    // Then apply styling and text wrapping to the text elements
+    xAxisGroup.selectAll("text")
       .style("text-anchor", "middle")
       .call(axisTextStyle)
-      .attr("y", 30)
-      .each(function(d, index, nodes) {
+      .attr("y", 20)
+      .each(function(d) {
+        const text = d3.select(this);
         const words = d.split(/\s+/);
-        const numBars = nodes.length;
-        const maxChars = 80 / numBars;
+        const numBars = sortedLabels.length;
+        
+        // Calculate max characters based on number of bars
+        let maxChars;
+        if (numBars <= 5) {
+          maxChars = 20;
+        } else if (numBars <= 7) {
+          maxChars = 12;
+        } else {
+          maxChars = 10;
+        }
+        
         let lines = [];
-        let currentLine = words[0];
+        let currentLine = "";
 
-        for(let i = 1; i < words.length; i++) {
-          if (currentLine.length + words[i].length + 1 <= maxChars) {
-            currentLine += " " + words[i];
+        for(let i = 0; i < words.length; i++) {
+          const testLine = currentLine ? currentLine + " " + words[i] : words[i];
+          if (testLine.length <= maxChars) {
+            currentLine = testLine;
           } else {
-            lines.push(currentLine);
+            if (currentLine) lines.push(currentLine);
             currentLine = words[i];
           }
         }
-        lines.push(currentLine);
+        if (currentLine) lines.push(currentLine);
 
-        d3.select(this).text(null);
-        lines.forEach((line, i) => {
-          d3.select(this)
-            .append("tspan")
+        // Clear and rebuild text with tspans
+        text.text(null);
+        lines.forEach((line, lineIndex) => {
+          text.append("tspan")
             .attr("x", 0)
-            .attr("dy", i === 0 ? 0 : "1.2em")
+            .attr("dy", lineIndex === 0 ? "0" : "1.2em")
             .text(line);
         });
       });
+    
+    // Add transition to the axis group after text is set up
+    xAxisGroup
+      .transition()
+      .duration(800);
     
     // Collect winners based on phase
     const winners = [];
