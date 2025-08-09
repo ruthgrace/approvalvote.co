@@ -10,8 +10,11 @@ def format_vote_confirmation(selected_options, poll_id):
     button_replacement_script = """
     <script>
         // Find the submit button and replace it with a checkmark
-        const submitButton = document.querySelector('button[type="submit"]');
+        const submitButton = document.getElementById('submit-vote-btn');
         if (submitButton) {
+            // First make sure it's visible (in case it was hidden during verification)
+            submitButton.style.display = 'block';
+            
             // Store original dimensions to preserve them
             const originalWidth = submitButton.offsetWidth;
             const originalHeight = submitButton.offsetHeight;
@@ -33,21 +36,21 @@ def format_vote_confirmation(selected_options, poll_id):
     </script>
     """
     
-    results_link = f'<div><a href="/results/{poll_id}" class="btn-primary">See preliminary results</a></div>'
+    results_link = f'<div class="mt-3"><a href="/results/{poll_id}" class="btn-primary-sm">See preliminary results</a></div>'
     
     if len(option_names) == 1:
         return f"""
-        <div class="space-y-6">
-            <h2>Vote submitted!</h2>
-            <p>You voted for: {option_names[0]}</p>
+        <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4 mt-4">
+            <h2 class="text-lg font-semibold text-green-800 mb-2">✓ Vote submitted!</h2>
+            <p class="text-green-700">You voted for: <strong>{option_names[0]}</strong></p>
             {results_link}
         </div>
         {button_replacement_script}
         """
     return f"""
-    <div class="space-y-6">
-        <h2>Vote submitted!</h2>
-        <p>You voted for: {", ".join(option_names[:-1])}, and {option_names[-1]}</p>
+    <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4 mt-4">
+        <h2 class="text-lg font-semibold text-green-800 mb-2">✓ Vote submitted!</h2>
+        <p class="text-green-700">You voted for: <strong>{", ".join(option_names[:-1])}, and {option_names[-1]}</strong></p>
         {results_link}
     </div>
     {button_replacement_script}

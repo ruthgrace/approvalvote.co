@@ -59,9 +59,10 @@ def new_vote(form_data=None):
 
     if len(poll_data[SELECTED]) == 0:
         response = make_response(f"""
-        <p>Your vote was not counted. Please select at least one option.</p>
+        <p class="text-red-600 font-medium">Your vote was not counted. Please select at least one option.</p>
         """)
         response.headers["HX-Retarget"] = "#error-message-div"
+        response.headers["HX-Swap"] = "innerHTML"
         return response
 
     try:
@@ -72,6 +73,7 @@ def new_vote(form_data=None):
             <p class="text-red-600 font-medium">Please enter an email address.</p>
             """)
             response.headers["HX-Retarget"] = "#error-message-div"
+            response.headers["HX-Swap"] = "innerHTML"
             return response
 
         # Handle user verification
@@ -84,6 +86,7 @@ def new_vote(form_data=None):
                     origin_function=NEW_VOTE
                 ))
                 response.headers["HX-Retarget"] = "#error-message-div"
+                response.headers["HX-Swap"] = "innerHTML"
                 return response
 
             if email_verification and (EMAIL not in session or session[EMAIL] != poll_data[EMAIL]):
@@ -96,13 +99,17 @@ def new_vote(form_data=None):
                     origin_function=NEW_VOTE
                 ))
                 response.headers["HX-Retarget"] = "#error-message-div"
+                response.headers["HX-Swap"] = "innerHTML"
                 return response
 
         # Process the vote
         user_id = db.get_user_id(poll_data[EMAIL]) if poll_data[EMAIL] else db.create_anonymous_user()
         db.save_votes(poll_data[ID], user_id, poll_data[SELECTED])
         
-        return format_vote_confirmation(poll_data[SELECTED], poll_data[ID])
+        response = make_response(format_vote_confirmation(poll_data[SELECTED], poll_data[ID]))
+        response.headers["HX-Retarget"] = "#error-message-div"
+        response.headers["HX-Swap"] = "innerHTML"
+        return response
 
     except Exception as err:
         print(traceback.format_exc())
