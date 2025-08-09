@@ -36,24 +36,36 @@ def format_vote_confirmation(selected_options, poll_id):
     </script>
     """
     
-    results_link = f'<div class="mt-3"><a href="/results/{poll_id}" class="btn-primary-sm">See preliminary results</a></div>'
+    results_button_script = f"""
+    <script>
+        // Add the results button after the submit button with more spacing
+        const submitBtn = document.getElementById('submit-vote-btn');
+        if (submitBtn && !document.getElementById('results-link')) {{
+            const resultsDiv = document.createElement('div');
+            resultsDiv.id = 'results-link';
+            resultsDiv.className = 'mt-6';
+            resultsDiv.innerHTML = '<a href="/results/{poll_id}" class="text-blue-600 border border-blue-600 hover:bg-blue-50 font-medium px-6 py-3 rounded-full transition duration-150 ease-in-out inline-block">See preliminary results</a>';
+            submitBtn.parentNode.insertBefore(resultsDiv, submitBtn.nextSibling);
+        }}
+    </script>
+    """
     
     if len(option_names) == 1:
         return f"""
         <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4 mt-4">
             <h2 class="text-lg font-semibold text-green-800 mb-2">✓ Vote submitted!</h2>
             <p class="text-green-700">You voted for: <strong>{option_names[0]}</strong></p>
-            {results_link}
         </div>
         {button_replacement_script}
+        {results_button_script}
         """
     return f"""
     <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4 mt-4">
         <h2 class="text-lg font-semibold text-green-800 mb-2">✓ Vote submitted!</h2>
         <p class="text-green-700">You voted for: <strong>{", ".join(option_names[:-1])}, and {option_names[-1]}</strong></p>
-        {results_link}
     </div>
     {button_replacement_script}
+    {results_button_script}
     """
 
 def format_winners_text(winning_set, candidate_text, seats, is_tie=False):
