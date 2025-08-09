@@ -187,6 +187,11 @@ def excess_vote_rounds(seats, candidate_counts, ballot_counts, candidate_text=No
             print(f"  Candidate {cand}: {votes:.2f} votes")
         print(f"Total ballots in play: {sum(ballot_counts.values()):.2f}")
         
+        # Handle case where no votes have been cast
+        if not vote_counts:
+            print("No votes cast yet")
+            break
+        
         max_votes = max(vote_counts.values())
         # Get all candidates with max votes (handles ties)
         winners_with_max = [cand for cand, votes in vote_counts.items() if votes == max_votes]

@@ -2,8 +2,18 @@
 
 {% block content %}
 <div class="space-y-4">
-  <h1 class="text-3xl font-medium">{{title}}</h1>
-  <p class="text-lg text-gray-500">{{description}}</p>
+  <h1 class="text-3xl font-medium">{{poll_name}}</h1>
+  <p class="text-lg text-gray-500">{{poll_description}}</p>
+  
+  {% if no_votes %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-left">
+    <p class="text-xl text-gray-700">This poll has no votes yet.</p>
+    <p class="text-gray-600 mt-2">Be the first to vote!</p>
+    <a href="/poll/{{poll_id}}" class="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+      Vote Now
+    </a>
+  </div>
+  {% else %}
   <p class="text-lg">Poll results: {{winners}}</p>
   <div class="container mx-auto px-4">
     <div style="display: flex; justify-content: space-around; gap-20px;">
@@ -724,4 +734,5 @@
     .style("height", totalHeight + "px")
     .style("margin-bottom", "2rem");
 </script>
+{% endif %}
 {% endblock %}

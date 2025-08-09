@@ -4,6 +4,7 @@ import itertools
 import traceback
 import csv
 import io
+import json
 import math
 from datetime import datetime
 from database import PollDatabase
@@ -116,6 +117,22 @@ def poll_results_page(poll_id):
         candidate_text = db.get_candidate_text(poll_id)
         candidates = db.get_votes_by_candidate(poll_id)
         ballot_counts = db.get_votes_by_candidate_sets(poll_id)
+        
+        # Check if there are any votes
+        total_votes = sum(len(votes) for votes in candidates.values())
+        if total_votes == 0:
+            # No votes yet - show placeholder
+            return render_template("poll_results.html.j2",
+                poll_id=poll_id,
+                poll_name=title,
+                poll_description=description,
+                no_votes=True,
+                vote_labels=[],
+                vote_tally={},
+                seats=seats,
+                excess_rounds=json.dumps([]),
+                winners=""
+            )
         
         # Calculate results
         vote_tally = {candidate: len(votes) for candidate, votes in candidates.items()}
