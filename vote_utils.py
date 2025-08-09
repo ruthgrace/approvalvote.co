@@ -56,10 +56,13 @@ def format_vote_confirmation(selected_options, poll_id):
 def format_winners_text(winning_set, candidate_text, seats, is_tie=False):
     winners_array = list(winning_set)
     if is_tie:
+        # Format the seat text properly
+        seat_text = f"for {seats} seat" if seats == 1 else f"for {seats} seats"
+        
         if len(winning_set) == 2:
-            return f"<strong>{candidate_text[winners_array[0]]} and {candidate_text[winners_array[1]]}</strong> are tied."
+            return f"<strong>{candidate_text[winners_array[0]]} and {candidate_text[winners_array[1]]}</strong> are tied {seat_text}."
         tie_winners_string = ", ".join([candidate_text[x] for x in winners_array[0:len(winners_array)-1]]) + ", and " + candidate_text[winners_array[-1]]
-        return f"<strong>{tie_winners_string}</strong> are tied."
+        return f"<strong>{tie_winners_string}</strong> are tied {seat_text}."
     else:
         if seats == 1:
             return f"The winner is <strong>{candidate_text[winners_array[0]]}</strong>."

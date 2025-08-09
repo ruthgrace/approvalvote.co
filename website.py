@@ -156,13 +156,73 @@ def poll_results_page(poll_id):
             
             excess_rounds.append(json_round)
         
-        # Check if there's an actual tie (more winners than seats)
-        is_tie = len(winning_set) > seats
+        # Check if there's an actual tie and format appropriately
+        # Group winners by round to detect partial ties
+        clear_winners = []
+        tied_candidates = []
         
-        # Format winners text using the actual winners from excess_vote_rounds
-        if is_tie:
-            winners = "There is a tie. " + format_winners_text(winning_set, candidate_text, seats, is_tie=True)
+        # Process the excess_rounds to identify clear winners vs ties
+        processed_rounds = set()
+        for i, round_data in enumerate(excess_rounds_raw[:len(winning_set)]):
+            if i in processed_rounds:
+                continue
+                
+            # Check if this round is part of a tie
+            if round_data.get('is_tie', False):
+                # Find all rounds with the same ballot_counts (the tied group)
+                tie_group = [round_data['winner']]
+                processed_rounds.add(i)
+                
+                for j in range(i + 1, len(excess_rounds_raw)):
+                    if j < len(winning_set) and excess_rounds_raw[j].get('is_tie', False):
+                        if ('ballot_counts' in round_data and 
+                            'ballot_counts' in excess_rounds_raw[j] and
+                            round_data['ballot_counts'] == excess_rounds_raw[j]['ballot_counts']):
+                            tie_group.append(excess_rounds_raw[j]['winner'])
+                            processed_rounds.add(j)
+                
+                # If this tie group exceeds available seats, it's a tie situation
+                if len(clear_winners) + len(tie_group) > seats:
+                    tied_candidates = tie_group
+                    break
+                else:
+                    # All tied candidates fit within seats
+                    clear_winners.extend(tie_group)
+            else:
+                # Clear winner
+                clear_winners.append(round_data['winner'])
+                processed_rounds.add(i)
+                
+                if len(clear_winners) >= seats:
+                    break
+        
+        # Format the winners text based on what we found
+        if tied_candidates:
+            # There's a tie for one of the positions
+            if clear_winners:
+                # Partial tie (some clear winners, then a tie)
+                clear_winner_names = [f"<strong>{candidate_text[w]}</strong>" for w in clear_winners]
+                tied_names = [f"<strong>{candidate_text[t]}</strong>" for t in tied_candidates]
+                
+                remaining_seats = seats - len(clear_winners)
+                seat_text = f"{remaining_seats} seat" if remaining_seats == 1 else f"{remaining_seats} seats"
+                
+                if len(clear_winners) == 1:
+                    winner_part = f"The winner of the first seat is {clear_winner_names[0]}. "
+                else:
+                    winner_part = f"The winners are {', '.join(clear_winner_names[:-1])} and {clear_winner_names[-1]}. "
+                
+                if len(tied_candidates) == 2:
+                    tie_part = f"{tied_names[0]} and {tied_names[1]} are tied for the remaining {seat_text}."
+                else:
+                    tie_part = f"{', '.join(tied_names[:-1])}, and {tied_names[-1]} are tied for the remaining {seat_text}."
+                
+                winners = winner_part + tie_part
+            else:
+                # Full tie (all candidates tied for all seats)
+                winners = "There is a tie. " + format_winners_text(set(tied_candidates), candidate_text, seats, is_tie=True)
         else:
+            # No ties
             winners = format_winners_text(winning_set, candidate_text, seats)
 
         # Save results
@@ -297,50 +357,145 @@ def compare_results():
         
         # Check if selected candidate is a winner
         if selected_candidate_id in winners_in_order:
-            position = winners_in_order.index(selected_candidate_id) + 1
-            position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
+            # Find which round this winner was selected in
+            round_idx = winners_in_order.index(selected_candidate_id)
+            
+            # Check if this winner is part of a tie
+            is_tied = False
+            tied_with = []
+            
+            # Check if this round and adjacent rounds have the same ballot_counts (indicating a tie)
+            if round_idx < len(excess_rounds) and excess_rounds[round_idx].get('is_tie', False):
+                # Find all other winners in the same tie
+                for other_idx, other_round in enumerate(excess_rounds):
+                    if (other_idx != round_idx and 
+                        other_round.get('is_tie', False) and
+                        'ballot_counts' in excess_rounds[round_idx] and 
+                        'ballot_counts' in other_round and
+                        excess_rounds[round_idx]['ballot_counts'] == other_round['ballot_counts']):
+                        if other_idx < len(winners_in_order):
+                            tied_with.append(winners_in_order[other_idx])
+                
+                if tied_with:
+                    is_tied = True
             
             # Get the actual vote count for the winner
             winner_vote_count = winner_votes_by_round.get(selected_candidate_id, initial_selected_votes)
             
-            return f"""
-            <div class='p-4 bg-green-50 border border-green-300 rounded-lg'>
-                <h3 class='font-bold text-green-800 mb-2'>Your candidate won!</h3>
-                <p class='text-green-700'>{option_name} finished in {position_text} place with {winner_vote_count} votes.</p>
-            </div>
-            """
+            if is_tied:
+                # For ties, all tied candidates effectively share 1st place
+                # Count how many winners came before this tie group
+                position = 1
+                for idx in range(round_idx):
+                    # Skip if this round is part of the same tie
+                    if idx < len(excess_rounds) and not (
+                        excess_rounds[idx].get('is_tie', False) and 
+                        'ballot_counts' in excess_rounds[idx] and 
+                        'ballot_counts' in excess_rounds[round_idx] and
+                        excess_rounds[idx]['ballot_counts'] == excess_rounds[round_idx]['ballot_counts']):
+                        position += 1
+                
+                position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
+                
+                # Special case: if there are more tied winners than seats available
+                if len(tied_with) + 1 > seats and position == 1:
+                    return f"""
+                    <div class='p-4 bg-yellow-50 border border-yellow-300 rounded-lg'>
+                        <h3 class='font-bold text-yellow-800 mb-2'>Your candidate tied!</h3>
+                        <p class='text-yellow-700'>{option_name} tied for {position_text} place with {winner_vote_count} votes.</p>
+                        <p class='text-yellow-600 text-sm mt-2'>Note: With {len(tied_with) + 1} candidates tied and only {seats} seat{'s' if seats != 1 else ''} available, a tiebreaker would be needed.</p>
+                    </div>
+                    """
+                else:
+                    return f"""
+                    <div class='p-4 bg-green-50 border border-green-300 rounded-lg'>
+                        <h3 class='font-bold text-green-800 mb-2'>Your candidate won!</h3>
+                        <p class='text-green-700'>{option_name} tied for {position_text} place with {winner_vote_count} votes.</p>
+                    </div>
+                    """
+            else:
+                # Not tied - regular win
+                position = round_idx + 1
+                position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
+                
+                return f"""
+                <div class='p-4 bg-green-50 border border-green-300 rounded-lg'>
+                    <h3 class='font-bold text-green-800 mb-2'>Your candidate won!</h3>
+                    <p class='text-green-700'>{option_name} finished in {position_text} place with {winner_vote_count} votes.</p>
+                </div>
+                """
         
         # Calculate how many votes short for each position
         vote_differences = []
         
-        for i, winner_id in enumerate(winners_in_order[:seats]):
-            position = i + 1
-            position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
-            winner_name = candidate_text[winner_id]
+        # Group tied winners together
+        position_groups = []
+        i = 0
+        
+        # When there are ties, we need to consider ALL tied winners even if seats < number of tied winners
+        # This is important for showing "1st place (tie between X and Y)" even when only 1 seat is available
+        while i < min(len(winners_in_order), len(excess_rounds)):
+            winner_id = winners_in_order[i]
+            tied_winners = [winner_id]
             
-            # For round 1, use initial votes
-            if i == 0:
-                winner_vote_count = winner_votes_by_round[winner_id]
+            # Check if next winners are part of the same tie
+            j = i + 1
+            while j < len(winners_in_order) and j < len(excess_rounds):
+                # Check if both rounds are marked as ties and have the same ballot_counts
+                if (excess_rounds[i].get('is_tie', False) and 
+                    excess_rounds[j].get('is_tie', False) and
+                    'ballot_counts' in excess_rounds[i] and 
+                    'ballot_counts' in excess_rounds[j] and
+                    excess_rounds[i]['ballot_counts'] == excess_rounds[j]['ballot_counts']):
+                    tied_winners.append(winners_in_order[j])
+                    j += 1
+                else:
+                    break
+            
+            position_groups.append(tied_winners)
+            i = j
+        
+        # Process each position group (but only up to the number of seats)
+        for group_idx, winner_group in enumerate(position_groups[:seats]):
+            position = group_idx + 1
+            position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
+            
+            # For first position group (round 1), use initial votes
+            if group_idx == 0:
+                # Get vote count (all tied winners have same vote count)
+                winner_vote_count = winner_votes_by_round[winner_group[0]]
                 selected_vote_count = initial_selected_votes
                 votes_needed = winner_vote_count - selected_vote_count + 1  # +1 to beat, not tie
                 
-                # For 1st place, need votes that don't overlap with the winner
-                exclusion_text = f" who did not also vote for {winner_name}"
+                # Build winner display text
+                if len(winner_group) == 1:
+                    winner_display = candidate_text[winner_group[0]]
+                    exclusion_text = f" who did not also vote for {candidate_text[winner_group[0]]}"
+                else:
+                    # It's a tie
+                    winner_names = [candidate_text[wid] for wid in winner_group]
+                    if len(winner_names) == 2:
+                        winner_display = f"tie between {winner_names[0]} and {winner_names[1]}"
+                        exclusion_text = f" who did not also vote for {winner_names[0]} or {winner_names[1]}"
+                    else:
+                        winner_display = f"tie between {', '.join(winner_names[:-1])}, and {winner_names[-1]}"
+                        exclusion_text = f" who did not also vote for {' or '.join(winner_names)}"
                 
                 if votes_needed > 0:
-                    vote_differences.append(f"<li>{position_text} place ({winner_name}): <strong>{votes_needed} more vote{'s' if votes_needed != 1 else ''}</strong> needed{exclusion_text}</li>")
+                    vote_differences.append(f"<li>{position_text} place ({winner_display}): <strong>{votes_needed} more vote{'s' if votes_needed != 1 else ''}</strong> needed{exclusion_text}</li>")
                 else:
-                    vote_differences.append(f"<li>{position_text} place ({winner_name}): Had enough votes but lost in the tie-breaking</li>")
+                    vote_differences.append(f"<li>{position_text} place ({winner_display}): Had enough votes but lost in the tie-breaking</li>")
             else:
                 # For subsequent rounds, calculate votes from ballot_counts after redistribution
-                # The winner's vote count in round i is from ballot_counts
-                round_data = excess_rounds[i]
+                # Get the first winner's round index (all tied winners have same round data)
+                round_idx = winners_in_order.index(winner_group[0])
+                round_data = excess_rounds[round_idx]
                 
-                # Calculate winner's actual votes from ballot_counts
+                # Calculate winner's actual votes from ballot_counts (all tied winners have same votes)
                 winner_vote_count = 0
                 if 'ballot_counts' in round_data:
                     for ballot, count in round_data['ballot_counts'].items():
-                        if winner_id in ballot:
+                        if winner_group[0] in ballot:
                             winner_vote_count += count
                 
                 # Calculate selected candidate's votes from ballot_counts
@@ -355,17 +510,31 @@ def compare_results():
                 # Round up to next whole number since we need actual voters
                 votes_needed = math.ceil(vote_difference + 0.01)  # +0.01 to beat, not just tie
                 
+                # Build winner display text
+                if len(winner_group) == 1:
+                    winner_display = candidate_text[winner_group[0]]
+                else:
+                    # It's a tie
+                    winner_names = [candidate_text[wid] for wid in winner_group]
+                    if len(winner_names) == 2:
+                        winner_display = f"tie between {winner_names[0]} and {winner_names[1]}"
+                    else:
+                        winner_display = f"tie between {', '.join(winner_names[:-1])}, and {winner_names[-1]}"
+                
                 # Build the exclusion list text - include ALL winners up to this position
-                all_winners_so_far = [candidate_text[winners_in_order[j]] for j in range(i + 1)]
+                all_winners_so_far = []
+                for prev_group in position_groups[:group_idx + 1]:
+                    all_winners_so_far.extend([candidate_text[wid] for wid in prev_group])
+                
                 if len(all_winners_so_far) == 1:
                     exclusion_text = f" who did not also vote for {all_winners_so_far[0]}"
                 else:
                     exclusion_text = f" who did not also vote for {' or '.join(all_winners_so_far)}"
                 
                 if votes_needed > 0:
-                    vote_differences.append(f"<li>{position_text} place ({winner_name}): <strong>{votes_needed} more vote{'s' if votes_needed != 1 else ''}</strong> needed{exclusion_text}</li>")
+                    vote_differences.append(f"<li>{position_text} place ({winner_display}): <strong>{votes_needed} more vote{'s' if votes_needed != 1 else ''}</strong> needed{exclusion_text}</li>")
                 else:
-                    vote_differences.append(f"<li>{position_text} place ({winner_name}): Had enough votes but lost in the redistribution</li>")
+                    vote_differences.append(f"<li>{position_text} place ({winner_display}): Had enough votes but lost in the redistribution</li>")
         
         return f"""
         <div class='p-4 bg-blue-50 border border-blue-300 rounded-lg'>
