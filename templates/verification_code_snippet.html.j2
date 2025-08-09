@@ -1,15 +1,23 @@
-{% if origin_function == "new_poll" %}
-  <form hx-post="/verification" hx-target="#poll-form-container" hx-swap="outerHTML">
-{% elif origin_function == "login" %}
-  <form hx-post="/verification" hx-target="#response" hx-swap="innerHTML">
-{% else %}
-  <form hx-post="/verification" hx-target="#response" hx-swap="innerHTML">
-{% endif %}
+<div class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mt-4">
+  <script>
+    if (document.getElementById('submit-vote-btn')) {
+      document.getElementById('submit-vote-btn').style.display = 'none';
+    }
+  </script>
+  <h3 class="text-lg font-semibold text-yellow-800 mb-2">⚠️ Email Verification Required</h3>
+  {% if origin_function == "new_poll" %}
+    <form hx-post="/verification" hx-target="#poll-form-container" hx-swap="outerHTML">
+  {% elif origin_function == "login" %}
+    <form hx-post="/verification" hx-target="#response" hx-swap="innerHTML">
+  {% else %}
+    <form hx-post="/verification" hx-target="#response" hx-swap="innerHTML">
+  {% endif %}
   <input type="hidden" name="origin_function" value="{{ origin_function }}" />
   <input type="hidden" name="user_id" value="{{ user_id }}" />
-  <p>A verification code has been sent to your email. Please enter it below:</p>
+  <p class="text-yellow-700 mb-3">A verification code has been sent to your email. Please enter it below to continue:</p>
   <input type="text" id="code" name="code" placeholder="1234" class="text-lg w-full mt-2" required />
-  <button type="submit" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-full transition duration-150 ease-in-out mt-2">
+  <button type="submit" class="btn-primary-sm mt-3">
     Submit verification code
   </button>
-</form>
+  </form>
+</div>

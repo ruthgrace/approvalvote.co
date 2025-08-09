@@ -68,7 +68,11 @@ def new_vote(form_data=None):
         # Check if email verification is required
         email_verification = db.get_poll_email_verification(poll_data[ID])
         if email_verification and not poll_data[EMAIL]:
-            return "Please enter an email address."
+            response = make_response(f"""
+            <p class="text-red-600 font-medium">Please enter an email address.</p>
+            """)
+            response.headers["HX-Retarget"] = "#error-message-div"
+            return response
 
         # Handle user verification
         if poll_data[EMAIL]:
@@ -86,11 +90,13 @@ def new_vote(form_data=None):
                 db.save_form_data(poll_data)
                 code = email_service.send_verification_email(poll_data[EMAIL])
                 session[VERIFICATION_CODE] = code
-                return render_template(
+                response = make_response(render_template(
                     "verification_code_snippet.html.j2",
                     user_id=db.get_user_id(poll_data[EMAIL]),
                     origin_function=NEW_VOTE
-                )
+                ))
+                response.headers["HX-Retarget"] = "#error-message-div"
+                return response
 
         # Process the vote
         user_id = db.get_user_id(poll_data[EMAIL]) if poll_data[EMAIL] else db.create_anonymous_user()
@@ -631,7 +637,14 @@ def new_user():
 def user_verification():
     code = request.form.get("code")
     if session[VERIFICATION_CODE] != code:
-        return "Incorrect code. Please try again."
+        return """
+        <p class="text-red-600 font-medium">Incorrect code. Please try again.</p>
+        <script>
+            // Show the submit button again if it was hidden
+            const submitBtn = document.getElementById('submit-vote-btn');
+            if (submitBtn) submitBtn.style.display = 'block';
+        </script>
+        """
     origin_function = request.form.get("origin_function")
     user_id = request.form.get("user_id")
     
@@ -647,10 +660,22 @@ def user_verification():
                 response.headers["HX-Redirect"] = "/dashboard"
                 return response
             else:
-                return "Login session expired. Please try again."
+                return """
+                <p class="text-red-600 font-medium">Login session expired. Please try again.</p>
+                <script>
+                    const submitBtn = document.getElementById('submit-vote-btn');
+                    if (submitBtn) submitBtn.style.display = 'block';
+                </script>
+                """
         except Exception:
             print(traceback.format_exc())
-            return "Login failed. Please try again."
+            return """
+            <p class="text-red-600 font-medium">Login failed. Please try again.</p>
+            <script>
+                const submitBtn = document.getElementById('submit-vote-btn');
+                if (submitBtn) submitBtn.style.display = 'block';
+            </script>
+            """
     
     # get previous form data from the original task the user was trying to complete
     form_data = None

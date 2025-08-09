@@ -1,11 +1,14 @@
-<div id="error-message-div" class="flex w-full">
+<div id="error-message-div" class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mt-4">
+  <script>
+    document.getElementById('submit-vote-btn').style.display = 'none';
+  </script>
   <form hx-post="/new_user">
     <input type="hidden" name="email" value="{{ email }}" />
     <input type="hidden" name="origin_function" value="{{ origin_function }}" />
-    <p>Based on your email address, you do not have an account with us.</p>
-    <p>Please register:</p>
+    <h3 class="text-lg font-semibold text-yellow-800 mb-2">⚠️ One more step needed</h3>
+    <p class="text-yellow-700 mb-3">We need your name to create your account and count your vote.</p>
     <input type="text" id="full_name" name="full_name" placeholder="Full name" class="text-lg w-full mt-2" required />
     <input type="text" id="preferred_name" name="preferred_name" placeholder="Preferred name if different from first name" class="text-lg w-full mt-2" />
-    <button type="submit" class="btn-primary-sm">Send verification code to email</button>
+    <button type="submit" class="btn-primary-sm mt-3">Send verification code to email</button>
   </form>
 </div>
