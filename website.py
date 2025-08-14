@@ -385,76 +385,8 @@ def compare_results():
         # Get initial selected candidate's vote count
         initial_selected_votes = len(candidates.get(selected_candidate_id, set()))
         
-        # Check if selected candidate is a winner
-        if selected_candidate_id in winners_in_order:
-            # Find which round this winner was selected in
-            round_idx = winners_in_order.index(selected_candidate_id)
-            
-            # Check if this winner is part of a tie
-            is_tied = False
-            tied_with = []
-            
-            # Check if this round and adjacent rounds have the same ballot_counts (indicating a tie)
-            if round_idx < len(excess_rounds) and excess_rounds[round_idx].get('is_tie', False):
-                # Find all other winners in the same tie
-                for other_idx, other_round in enumerate(excess_rounds):
-                    if (other_idx != round_idx and 
-                        other_round.get('is_tie', False) and
-                        'ballot_counts' in excess_rounds[round_idx] and 
-                        'ballot_counts' in other_round and
-                        excess_rounds[round_idx]['ballot_counts'] == other_round['ballot_counts']):
-                        if other_idx < len(winners_in_order):
-                            tied_with.append(winners_in_order[other_idx])
-                
-                if tied_with:
-                    is_tied = True
-            
-            # Get the actual vote count for the winner
-            winner_vote_count = winner_votes_by_round.get(selected_candidate_id, initial_selected_votes)
-            
-            if is_tied:
-                # For ties, all tied candidates effectively share 1st place
-                # Count how many winners came before this tie group
-                position = 1
-                for idx in range(round_idx):
-                    # Skip if this round is part of the same tie
-                    if idx < len(excess_rounds) and not (
-                        excess_rounds[idx].get('is_tie', False) and 
-                        'ballot_counts' in excess_rounds[idx] and 
-                        'ballot_counts' in excess_rounds[round_idx] and
-                        excess_rounds[idx]['ballot_counts'] == excess_rounds[round_idx]['ballot_counts']):
-                        position += 1
-                
-                position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
-                
-                # Special case: if there are more tied winners than seats available
-                if len(tied_with) + 1 > seats and position == 1:
-                    return f"""
-                    <div class='p-4 bg-yellow-50 border border-yellow-300 rounded-lg'>
-                        <h3 class='font-bold text-yellow-800 mb-2'>Your candidate tied!</h3>
-                        <p class='text-yellow-700'>{option_name} tied for {position_text} place with {winner_vote_count} votes.</p>
-                        <p class='text-yellow-600 text-sm mt-2'>Note: With {len(tied_with) + 1} candidates tied and only {seats} seat{'s' if seats != 1 else ''} available, a tiebreaker would be needed.</p>
-                    </div>
-                    """
-                else:
-                    return f"""
-                    <div class='p-4 bg-green-50 border border-green-300 rounded-lg'>
-                        <h3 class='font-bold text-green-800 mb-2'>Your candidate won!</h3>
-                        <p class='text-green-700'>{option_name} tied for {position_text} place with {winner_vote_count} votes.</p>
-                    </div>
-                    """
-            else:
-                # Not tied - regular win
-                position = round_idx + 1
-                position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
-                
-                return f"""
-                <div class='p-4 bg-green-50 border border-green-300 rounded-lg'>
-                    <h3 class='font-bold text-green-800 mb-2'>Your candidate won!</h3>
-                    <p class='text-green-700'>{option_name} finished in {position_text} place with {winner_vote_count} votes.</p>
-                </div>
-                """
-        
+        # Check if selected candidate is a winner (but don't return early - we'll handle it in the loop)
+        is_winner = selected_candidate_id in winners_in_order
         # Calculate how many votes short for each position
         vote_differences = []
         
@@ -489,6 +421,58 @@ def compare_results():
         for group_idx, winner_group in enumerate(position_groups[:seats]):
             position = group_idx + 1
             position_text = "1st" if position == 1 else "2nd" if position == 2 else "3rd" if position == 3 else f"{position}th"
+            
+            # Check if this is where the selected candidate actually won
+            if is_winner and selected_candidate_id in winner_group:
+                # This is where they won! Show special message with vote breakdown
+                winner_vote_count = winner_votes_by_round.get(selected_candidate_id, initial_selected_votes)
+                
+                # Calculate vote breakdown if not first place
+                if position > 1:
+                    # Get all previous winners
+                    previous_winners = []
+                    for prev_group in position_groups[:group_idx]:
+                        previous_winners.extend(prev_group)
+                    
+                    # Calculate how many of candidate's votes also included previous winners
+                    votes_with_previous_winners = 0
+                    votes_without_previous_winners = 0
+                    
+                    selected_voters = candidates.get(selected_candidate_id, set())
+                    for voter in selected_voters:
+                        voted_for_previous_winner = False
+                        for prev_winner_id in previous_winners:
+                            if voter in candidates.get(prev_winner_id, set()):
+                                voted_for_previous_winner = True
+                                break
+                        
+                        if voted_for_previous_winner:
+                            votes_with_previous_winners += 1
+                        else:
+                            votes_without_previous_winners += 1
+                    
+                    # Build the winner message with breakdown
+                    if len(winner_group) > 1:
+                        other_winners = [candidate_text[wid] for wid in winner_group if wid != selected_candidate_id]
+                        tie_text = f" (tied with {', '.join(other_winners)})"
+                    else:
+                        tie_text = ""
+                    
+                    vote_differences.append(f"<li><strong>{position_text} place{tie_text}: WON with {winner_vote_count} votes</strong><br>" +
+                                          f"<span class='ml-4'>• {votes_without_previous_winners} vote{'s' if votes_without_previous_winners != 1 else ''} from voters who didn't vote for higher-placed winners</span><br>" +
+                                          f"<span class='ml-4'>• {votes_with_previous_winners} vote{'s' if votes_with_previous_winners != 1 else ''} from voters who also voted for higher-placed winners</span></li>")
+                else:
+                    # First place winner
+                    if len(winner_group) > 1:
+                        other_winners = [candidate_text[wid] for wid in winner_group if wid != selected_candidate_id]
+                        tie_text = f" (tied with {', '.join(other_winners)})"
+                    else:
+                        tie_text = ""
+                    
+                    vote_differences.append(f"<li><strong>{position_text} place{tie_text}: WON with {winner_vote_count} votes</strong></li>")
+                
+                # Stop after showing where they won
+                break
             
             # For first position group (round 1), use initial votes
             if group_idx == 0:
@@ -566,16 +550,28 @@ def compare_results():
                 else:
                     vote_differences.append(f"<li>{position_text} place ({winner_display}): Had enough votes but lost in the redistribution</li>")
         
-        return f"""
-        <div class='p-4 bg-blue-50 border border-blue-300 rounded-lg'>
-            <h3 class='font-bold text-blue-800 mb-2'>Vote Analysis for {option_name}</h3>
-            <p class='text-blue-700 mb-2'>Your candidate received {initial_selected_votes} vote{'s' if initial_selected_votes != 1 else ''}.</p>
-            <p class='text-blue-700 mb-2'>To win each position, they would have needed:</p>
-            <ul class='list-disc list-inside text-blue-700'>
-                {''.join(vote_differences)}
-            </ul>
-        </div>
-        """
+        # Different styling and messaging for winners vs non-winners
+        if is_winner:
+            return f"""
+            <div class='p-4 bg-green-50 border border-green-300 rounded-lg'>
+                <h3 class='font-bold text-green-800 mb-2'>Your candidate won!</h3>
+                <p class='text-green-700 mb-2'>{option_name} received {initial_selected_votes} vote{'s' if initial_selected_votes != 1 else ''} total.</p>
+                <ul class='list-disc list-inside text-green-700'>
+                    {''.join(vote_differences)}
+                </ul>
+            </div>
+            """
+        else:
+            return f"""
+            <div class='p-4 bg-blue-50 border border-blue-300 rounded-lg'>
+                <h3 class='font-bold text-blue-800 mb-2'>Vote Analysis for {option_name}</h3>
+                <p class='text-blue-700 mb-2'>Your candidate received {initial_selected_votes} vote{'s' if initial_selected_votes != 1 else ''}.</p>
+                <p class='text-blue-700 mb-2'>To win each position, they would have needed:</p>
+                <ul class='list-disc list-inside text-blue-700'>
+                    {''.join(vote_differences)}
+                </ul>
+            </div>
+            """
         
     except Exception as err:
         print(traceback.format_exc())
